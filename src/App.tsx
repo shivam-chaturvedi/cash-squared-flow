@@ -3,23 +3,63 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import Index from "./pages/Index.tsx";
-import NotFound from "./pages/NotFound.tsx";
+import { AppProvider, useApp } from "@/contexts/AppContext";
+import LoginPage from "@/pages/LoginPage";
+import AccountTypeSelect from "@/pages/AccountTypeSelect";
+import AppLayout from "@/components/AppLayout";
+import BusinessDashboard from "@/pages/business/BusinessDashboard";
+import CustomersPage from "@/pages/business/CustomersPage";
+import SuppliersPage from "@/pages/business/SuppliersPage";
+import BusinessExpensesPage from "@/pages/business/BusinessExpensesPage";
+import CashbookPage from "@/pages/business/CashbookPage";
+import ReportsPage from "@/pages/business/ReportsPage";
+import PersonalDashboard from "@/pages/personal/PersonalDashboard";
+import PersonalExpensesPage from "@/pages/personal/PersonalExpensesPage";
+import BudgetPage from "@/pages/personal/BudgetPage";
+import InsightsPage from "@/pages/personal/InsightsPage";
+import SettingsPage from "@/pages/SettingsPage";
+import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
+
+const AppContent = () => {
+  const { authState, mode } = useApp();
+
+  if (authState === "login" || authState === "signup") {
+    return <LoginPage />;
+  }
+  if (authState === "select-type") {
+    return <AccountTypeSelect />;
+  }
+
+  return (
+    <BrowserRouter>
+      <AppLayout>
+        <Routes>
+          <Route path="/" element={mode === "business" ? <BusinessDashboard /> : <PersonalDashboard />} />
+          <Route path="/customers" element={<CustomersPage />} />
+          <Route path="/suppliers" element={<SuppliersPage />} />
+          <Route path="/expenses" element={mode === "business" ? <BusinessExpensesPage /> : <PersonalExpensesPage />} />
+          <Route path="/cashbook" element={<CashbookPage />} />
+          <Route path="/reports" element={<ReportsPage />} />
+          <Route path="/budget" element={<BudgetPage />} />
+          <Route path="/insights" element={<InsightsPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </AppLayout>
+    </BrowserRouter>
+  );
+};
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
+      <AppProvider>
+        <AppContent />
+      </AppProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );
