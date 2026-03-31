@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { t } from "@/lib/translations";
 import EmptyState from "@/components/EmptyState";
 import { Plus } from "lucide-react";
+import AddExpenseModal from "@/components/modals/AddExpenseModal";
 
 const categories = [
   { name: "Office Rent", amount: 15000, color: "bg-primary" },
@@ -14,23 +16,22 @@ const BusinessExpensesPage = () => {
   const { language } = useApp();
   const tr = t[language];
   const total = categories.reduce((s, c) => s + c.amount, 0);
+  const [showAdd, setShowAdd] = useState(false);
 
   return (
     <div className="p-4 md:p-6 space-y-4 animate-fade-in">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold">{tr.expenses}</h2>
-        <button className="bg-primary text-primary-foreground px-4 py-2 text-sm font-medium flex items-center gap-1 hover:opacity-90 transition">
+        <button onClick={() => setShowAdd(true)} className="bg-primary text-primary-foreground px-4 py-2 text-sm font-medium flex items-center gap-1 hover:opacity-90 transition">
           <Plus className="h-4 w-4" /> {tr.addExpense}
         </button>
       </div>
 
-      {/* Total */}
       <div className="bg-money-out-light border border-money-out/20 p-4">
         <p className="text-xs text-muted-foreground">{tr.totalSpending}</p>
         <p className="text-2xl font-bold text-money-out">₹{total.toLocaleString()}</p>
       </div>
 
-      {/* Categories */}
       <div className="space-y-2">
         {categories.map((cat) => (
           <div key={cat.name} className="bg-card border border-border p-4 flex items-center gap-3">
@@ -42,9 +43,9 @@ const BusinessExpensesPage = () => {
         ))}
       </div>
 
-      {categories.length === 0 && (
-        <EmptyState title={tr.noData} subtitle={tr.addFirst} />
-      )}
+      {categories.length === 0 && <EmptyState title={tr.noData} subtitle={tr.addFirst} />}
+
+      <AddExpenseModal open={showAdd} onClose={() => setShowAdd(false)} type="business" />
     </div>
   );
 };

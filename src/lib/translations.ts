@@ -47,6 +47,12 @@ export const t = {
     online: "Online",
     noCustomerSelected: "No customer selected",
     bulkUpload: "Bulk Upload",
+    selectMultipleHint: "You can select one or both account types",
+    canChangeLater: "You can change this later in Settings",
+    continueBtn: "Continue",
+    selected: "selected",
+    manageAccountTypes: "Account Types",
+    manageAccountTypesDesc: "Add or remove account types. You need at least one.",
   },
   "zh-HK": {
     appName: "財簿",
@@ -96,6 +102,12 @@ export const t = {
     online: "在線",
     noCustomerSelected: "未選擇客戶",
     bulkUpload: "批量上傳",
+    selectMultipleHint: "你可以選擇一種或兩種帳戶類型",
+    canChangeLater: "你可以稍後在設置中更改",
+    continueBtn: "繼續",
+    selected: "已選擇",
+    manageAccountTypes: "帳戶類型",
+    manageAccountTypesDesc: "添加或移除帳戶類型，至少需要一種。",
   },
 };
 

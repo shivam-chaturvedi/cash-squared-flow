@@ -7,6 +7,8 @@ export type AuthState = "login" | "signup" | "select-type" | "authenticated";
 interface AppContextType {
   mode: AppMode;
   setMode: (m: AppMode) => void;
+  accountTypes: AppMode[];
+  setAccountTypes: (types: AppMode[]) => void;
   language: Language;
   setLanguage: (l: Language) => void;
   authState: AuthState;
@@ -25,12 +27,13 @@ export const useApp = () => {
 
 export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [mode, setMode] = useState<AppMode>("business");
+  const [accountTypes, setAccountTypes] = useState<AppMode[]>([]);
   const [language, setLanguage] = useState<Language>("en");
   const [authState, setAuthState] = useState<AuthState>("login");
   const [userName, setUserName] = useState("User");
 
   return (
-    <AppContext.Provider value={{ mode, setMode, language, setLanguage, authState, setAuthState, userName, setUserName }}>
+    <AppContext.Provider value={{ mode, setMode, accountTypes, setAccountTypes, language, setLanguage, authState, setAuthState, userName, setUserName }}>
       {children}
     </AppContext.Provider>
   );
