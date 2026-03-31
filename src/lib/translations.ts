@@ -47,6 +47,12 @@ export const t = {
     online: "Online",
     noCustomerSelected: "No customer selected",
     bulkUpload: "Bulk Upload",
+    selectMultipleHint: "You can select one or both account types",
+    canChangeLater: "You can change this later in Settings",
+    continueBtn: "Continue",
+    selected: "selected",
+    manageAccountTypes: "Account Types",
+    manageAccountTypesDesc: "Add or remove account types. You need at least one.",
   },
   "zh-HK": {
     appName: "財簿",
