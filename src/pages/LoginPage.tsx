@@ -53,9 +53,9 @@ const LoginPage = () => {
       <div className="w-full max-w-sm animate-fade-in">
         {/* Logo & Brand */}
         <div className="text-center mb-6">
-          <img src="/logo.png" alt="Avail" className="w-16 h-16 mx-auto mb-3 object-contain" />
-          <h1 className="text-2xl font-extrabold text-foreground">{tr.appName}</h1>
+          <img src="/logo.png" alt="Avail" className="w-40 h-auto mx-auto mb-2 object-contain" />
           <p className="text-muted-foreground text-sm mt-0.5">{tr.slogan}</p>
+        </div>
         </div>
 
         <div className="bg-card border border-border p-5 shadow-sm">
