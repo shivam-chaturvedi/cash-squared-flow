@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from "react";
+import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
 
 export type AppMode = "business" | "personal";
 export type Language = "en" | "zh-HK";
@@ -25,6 +25,32 @@ interface AppContextType {
   setOwnerName: (n: string) => void;
 }
 
+type StoredState = {
+  mode: AppMode;
+  accountTypes: AppMode[];
+  language: Language;
+  authState: AuthState;
+  userName: string;
+  userAge: string;
+  userEmail: string;
+  businessName: string;
+  ownerName: string;
+};
+
+const STORAGE_KEY = "cash-squared-app-state";
+
+const readStoredState = (): StoredState | null => {
+  if (typeof window === "undefined") return null;
+  const raw = window.localStorage.getItem(STORAGE_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed as StoredState;
+  } catch {
+    return null;
+  }
+};
+
 const AppContext = createContext<AppContextType | null>(null);
 
 export const useApp = () => {
@@ -34,15 +60,32 @@ export const useApp = () => {
 };
 
 export const AppProvider = ({ children }: { children: ReactNode }) => {
-  const [mode, setMode] = useState<AppMode>("business");
-  const [accountTypes, setAccountTypes] = useState<AppMode[]>([]);
-  const [language, setLanguage] = useState<Language>("en");
-  const [authState, setAuthState] = useState<AuthState>("login");
-  const [userName, setUserName] = useState("User");
-  const [userAge, setUserAge] = useState("");
-  const [userEmail, setUserEmail] = useState("");
-  const [businessName, setBusinessName] = useState("");
-  const [ownerName, setOwnerName] = useState("");
+  const stored = readStoredState();
+  const [mode, setMode] = useState<AppMode>(stored?.mode ?? "business");
+  const [accountTypes, setAccountTypes] = useState<AppMode[]>(stored?.accountTypes ?? []);
+  const [language, setLanguage] = useState<Language>(stored?.language ?? "en");
+  const [authState, setAuthState] = useState<AuthState>(stored?.authState ?? "login");
+  const [userName, setUserName] = useState(stored?.userName ?? "User");
+  const [userAge, setUserAge] = useState(stored?.userAge ?? "");
+  const [userEmail, setUserEmail] = useState(stored?.userEmail ?? "");
+  const [businessName, setBusinessName] = useState(stored?.businessName ?? "");
+  const [ownerName, setOwnerName] = useState(stored?.ownerName ?? "");
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const payload = {
+      mode,
+      accountTypes,
+      language,
+      authState,
+      userName,
+      userAge,
+      userEmail,
+      businessName,
+      ownerName,
+    };
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  }, [mode, accountTypes, language, authState, userName, userAge, userEmail, businessName, ownerName]);
 
   return (
     <AppContext.Provider value={{

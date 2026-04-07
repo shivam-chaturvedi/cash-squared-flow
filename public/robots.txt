@@ -12,3 +12,6 @@ Allow: /
 
 User-agent: *
 Allow: /
+
+
+chpater, lessons, contact, media  to be kept on sperate pages

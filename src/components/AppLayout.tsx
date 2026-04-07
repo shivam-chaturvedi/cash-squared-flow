@@ -4,7 +4,7 @@ import { t } from "@/lib/translations";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Users, Truck, Receipt, BookOpen, BarChart3,
-  Settings, PiggyBank, TrendingUp, Plus, Mic, Globe, UsersRound,
+  Settings, PiggyBank, TrendingUp, Plus, UsersRound,
 } from "lucide-react";
 import AddTransactionModal from "@/components/modals/AddTransactionModal";
 import AddExpenseModal from "@/components/modals/AddExpenseModal";
@@ -29,7 +29,7 @@ const personalNav = [
 ] as const;
 
 const AppLayout = ({ children }: { children: ReactNode }) => {
-  const { mode, setMode, language, setLanguage, userName, accountTypes } = useApp();
+  const { mode, setMode, language, setAuthState, userName, accountTypes } = useApp();
   const location = useLocation();
   const navigate = useNavigate();
   const tr = t[language];
@@ -45,7 +45,7 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
       <aside className="hidden md:flex flex-col w-56 bg-card border-r border-border shrink-0">
         <div className="p-3 border-b border-border">
           <div className="flex items-center gap-2">
-            <img src="/logo.png" alt="Avail" className="w-28 h-auto object-contain" />
+            <img src="/logo.png" alt="Cash Squared Flow" className="w-36 h-auto object-contain" />
           </div>
         </div>
 
@@ -86,26 +86,28 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
           })}
         </nav>
 
-        <div className="p-2 border-t border-border">
-          <button onClick={() => setLanguage(language === "en" ? "zh-HK" : "en")}
-            className="flex items-center gap-2 text-xs font-medium text-primary-foreground bg-primary hover:opacity-90 transition w-full px-3 py-2">
-            <Globe className="h-3.5 w-3.5" />
-            {language === "en" ? "繁體中文" : "English"}
+        <div className="mt-6 mb-2 px-3 py-3 border-t border-border">
+          <button
+            onClick={() => {
+              if (window.confirm("Are you sure you want to log out?")) {
+                setAuthState("login");
+              }
+            }}
+            className="flex w-full items-center justify-center rounded-xl border border-border px-3 py-2 text-xs font-semibold text-money-out hover:border-money-out transition"
+          >
+            Log Out
           </button>
         </div>
+
       </aside>
 
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0">
         <header className="md:hidden flex items-center justify-between px-4 py-2 bg-card border-b border-border">
           <div className="flex items-center gap-2">
-            <img src="/logo.png" alt="Avail" className="w-20 h-auto object-contain" />
+            <img src="/logo.png" alt="Cash Squared Flow" className="w-32 h-auto object-contain" />
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => setLanguage(language === "en" ? "zh-HK" : "en")}
-              className="text-xs font-medium text-primary-foreground bg-primary px-2 py-1">
-              {language === "en" ? "中文" : "EN"}
-            </button>
             {hasBoth && (
               <div className="flex bg-muted p-0.5 text-xs">
                 <button onClick={() => { setMode("business"); navigate("/"); }} className={`px-2 py-1 font-medium ${mode === "business" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>Biz</button>
@@ -120,10 +122,6 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
         {/* FAB */}
         <button onClick={() => setShowFabModal(true)} className="fixed bottom-20 right-4 md:bottom-6 md:right-6 w-12 h-12 bg-primary text-primary-foreground shadow-lg flex items-center justify-center hover:opacity-90 transition z-50">
           <Plus className="h-5 w-5" />
-        </button>
-
-        <button className="fixed bottom-20 right-20 md:bottom-6 md:right-20 w-10 h-10 bg-card border border-border text-muted-foreground shadow flex items-center justify-center hover:text-foreground transition z-50">
-          <Mic className="h-4 w-4" />
         </button>
 
         <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-card border-t border-border flex z-40">

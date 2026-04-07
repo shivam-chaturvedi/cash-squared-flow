@@ -1,22 +1,33 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { t } from "@/lib/translations";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
-interface Props { open: boolean; onClose: () => void; }
+interface Props {
+  open: boolean;
+  onClose: () => void;
+  initialType?: "in" | "out";
+}
 
-const AddTransactionModal = ({ open, onClose }: Props) => {
+const AddTransactionModal = ({ open, onClose, initialType }: Props) => {
   const { language } = useApp();
   const tr = t[language];
-  const [type, setType] = useState<"in" | "out">("in");
+  const [type, setType] = useState<"in" | "out">(initialType ?? "in");
   const [amount, setAmount] = useState("");
   const [desc, setDesc] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onClose();
-    setAmount(""); setDesc("");
+    setAmount("");
+    setDesc("");
   };
+
+  useEffect(() => {
+    if (open) {
+      setType(initialType ?? "in");
+    }
+  }, [open, initialType]);
 
   return (
     <Dialog open={open} onOpenChange={onClose}>

@@ -3,6 +3,7 @@ import { useApp } from "@/contexts/AppContext";
 import { t } from "@/lib/translations";
 import { Search, Plus, Users, DollarSign, Clock, Shield } from "lucide-react";
 import EmptyState from "@/components/EmptyState";
+import AddEmployeeModal from "@/components/modals/AddEmployeeModal";
 
 const mockEmployees = [
   { id: 1, name: "Sarah Chen", email: "sarah@company.com", role: "Manager", salary: 65000, lastEdit: "2 hours ago" },
@@ -15,6 +16,7 @@ const EmployeesPage = () => {
   const tr = t[language];
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<number | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
 
   const filtered = mockEmployees.filter((e) => e.name.toLowerCase().includes(search.toLowerCase()) || e.email.includes(search));
   const selectedEmp = mockEmployees.find((e) => e.id === selected);
@@ -22,12 +24,15 @@ const EmployeesPage = () => {
   return (
     <div className="h-full flex flex-col md:flex-row">
       <div className="flex-1 md:max-w-lg md:border-r border-border flex flex-col">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-card">
-          <h2 className="text-base font-bold">{tr.employees}</h2>
-          <button className="bg-primary text-primary-foreground px-3 py-1.5 text-sm font-medium flex items-center gap-1 hover:opacity-90 transition">
-            <Plus className="h-4 w-4" /> {tr.addEmployee}
-          </button>
-        </div>
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-card">
+            <h2 className="text-base font-bold">{tr.employees}</h2>
+            <button
+              onClick={() => setShowAdd(true)}
+              className="bg-primary text-primary-foreground px-3 py-1.5 text-sm font-medium flex items-center gap-1 hover:opacity-90 transition"
+            >
+              <Plus className="h-4 w-4" /> {tr.addEmployee}
+            </button>
+          </div>
 
         <div className="p-3 bg-card border-b border-border">
           <div className="relative">
@@ -97,6 +102,8 @@ const EmployeesPage = () => {
           </div>
         )}
       </div>
+
+      <AddEmployeeModal open={showAdd} onClose={() => setShowAdd(false)} />
     </div>
   );
 };
