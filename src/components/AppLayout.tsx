@@ -4,7 +4,7 @@ import { t } from "@/lib/translations";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Users, Truck, Receipt, BookOpen, BarChart3,
-  Settings, PiggyBank, TrendingUp, Plus, Mic, Globe,
+  Settings, PiggyBank, TrendingUp, Plus, Mic, Globe, UsersRound,
 } from "lucide-react";
 import AddTransactionModal from "@/components/modals/AddTransactionModal";
 import AddExpenseModal from "@/components/modals/AddExpenseModal";
@@ -13,6 +13,7 @@ const businessNav = [
   { key: "dashboard", icon: LayoutDashboard, path: "/" },
   { key: "customers", icon: Users, path: "/customers" },
   { key: "suppliers", icon: Truck, path: "/suppliers" },
+  { key: "employees", icon: UsersRound, path: "/employees" },
   { key: "expenses", icon: Receipt, path: "/expenses" },
   { key: "cashbook", icon: BookOpen, path: "/cashbook" },
   { key: "reports", icon: BarChart3, path: "/reports" },
@@ -42,14 +43,24 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
     <div className="min-h-screen flex bg-background">
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex flex-col w-56 bg-card border-r border-border shrink-0">
-        <div className="p-4 border-b border-border">
+        <div className="p-3 border-b border-border">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm">
+            <img src="/logo.png" alt="Avail" className="w-9 h-9 object-contain" />
+            <div className="min-w-0">
+              <p className="text-sm font-bold">{tr.appName}</p>
+              <p className="text-[10px] text-muted-foreground">{tr.slogan}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="px-3 py-2 border-b border-border">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-primary flex items-center justify-center text-primary-foreground font-bold text-xs">
               {userName.charAt(0).toUpperCase()}
             </div>
             <div className="min-w-0">
               <p className="text-sm font-semibold truncate">{userName}</p>
-              <p className="text-xs text-money-in flex items-center gap-1">
+              <p className="text-[10px] text-money-in flex items-center gap-1">
                 <span className="w-1.5 h-1.5 bg-money-in rounded-full" />
                 {tr.online}
               </p>
@@ -58,7 +69,7 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
         </div>
 
         {hasBoth && (
-          <div className="p-3 border-b border-border">
+          <div className="px-3 py-2 border-b border-border">
             <div className="flex bg-muted p-0.5">
               <button onClick={() => { setMode("business"); navigate("/"); }} className={`flex-1 py-1.5 text-xs font-medium transition ${mode === "business" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>{tr.business}</button>
               <button onClick={() => { setMode("personal"); navigate("/"); }} className={`flex-1 py-1.5 text-xs font-medium transition ${mode === "personal" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>{tr.personal}</button>
@@ -66,12 +77,12 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
           </div>
         )}
 
-        <nav className="flex-1 p-2 space-y-0.5">
+        <nav className="flex-1 p-2 space-y-0.5 overflow-auto">
           {navItems.map((item) => {
             const label = tr[item.key as keyof typeof tr] || item.key;
             const active = isActive(item.path);
             return (
-              <button key={item.key} onClick={() => navigate(item.path)} className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm transition ${active ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium border-l-2 border-primary" : "text-sidebar-foreground hover:bg-accent"}`}>
+              <button key={item.key} onClick={() => navigate(item.path)} className={`w-full flex items-center gap-3 px-3 py-2 text-sm transition ${active ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium border-l-2 border-primary" : "text-sidebar-foreground hover:bg-accent"}`}>
                 <item.icon className="h-4 w-4 shrink-0" />
                 <span>{label}</span>
               </button>
@@ -79,8 +90,9 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
           })}
         </nav>
 
-        <div className="p-3 border-t border-border">
-          <button onClick={() => setLanguage(language === "en" ? "zh-HK" : "en")} className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition w-full">
+        <div className="p-2 border-t border-border">
+          <button onClick={() => setLanguage(language === "en" ? "zh-HK" : "en")}
+            className="flex items-center gap-2 text-xs font-medium text-primary-foreground bg-primary hover:opacity-90 transition w-full px-3 py-2">
             <Globe className="h-3.5 w-3.5" />
             {language === "en" ? "繁體中文" : "English"}
           </button>
@@ -89,10 +101,16 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
 
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="md:hidden flex items-center justify-between px-4 py-3 bg-card border-b border-border">
-          <h1 className="font-bold text-foreground">{tr.appName}</h1>
+        <header className="md:hidden flex items-center justify-between px-4 py-2 bg-card border-b border-border">
           <div className="flex items-center gap-2">
-            <button onClick={() => setLanguage(language === "en" ? "zh-HK" : "en")} className="text-xs text-muted-foreground border border-border px-2 py-1">{language === "en" ? "中文" : "EN"}</button>
+            <img src="/logo.png" alt="Avail" className="w-7 h-7 object-contain" />
+            <h1 className="font-bold text-foreground">{tr.appName}</h1>
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setLanguage(language === "en" ? "zh-HK" : "en")}
+              className="text-xs font-medium text-primary-foreground bg-primary px-2 py-1">
+              {language === "en" ? "中文" : "EN"}
+            </button>
             {hasBoth && (
               <div className="flex bg-muted p-0.5 text-xs">
                 <button onClick={() => { setMode("business"); navigate("/"); }} className={`px-2 py-1 font-medium ${mode === "business" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>Biz</button>
