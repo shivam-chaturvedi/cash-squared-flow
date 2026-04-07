@@ -5,7 +5,11 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppProvider, useApp } from "@/contexts/AppContext";
 import LoginPage from "@/pages/LoginPage";
+import OtpPage from "@/pages/OtpPage";
+import TermsPage from "@/pages/TermsPage";
 import AccountTypeSelect from "@/pages/AccountTypeSelect";
+import BusinessSetupPage from "@/pages/BusinessSetupPage";
+import TutorialPage from "@/pages/TutorialPage";
 import AppLayout from "@/components/AppLayout";
 import BusinessDashboard from "@/pages/business/BusinessDashboard";
 import CustomersPage from "@/pages/business/CustomersPage";
@@ -13,6 +17,7 @@ import SuppliersPage from "@/pages/business/SuppliersPage";
 import BusinessExpensesPage from "@/pages/business/BusinessExpensesPage";
 import CashbookPage from "@/pages/business/CashbookPage";
 import ReportsPage from "@/pages/business/ReportsPage";
+import EmployeesPage from "@/pages/business/EmployeesPage";
 import PersonalDashboard from "@/pages/personal/PersonalDashboard";
 import PersonalExpensesPage from "@/pages/personal/PersonalExpensesPage";
 import BudgetPage from "@/pages/personal/BudgetPage";
@@ -25,12 +30,12 @@ const queryClient = new QueryClient();
 const AppContent = () => {
   const { authState, mode } = useApp();
 
-  if (authState === "login" || authState === "signup") {
-    return <LoginPage />;
-  }
-  if (authState === "select-type") {
-    return <AccountTypeSelect />;
-  }
+  if (authState === "login" || authState === "signup") return <LoginPage />;
+  if (authState === "signup-otp") return <OtpPage />;
+  if (authState === "signup-terms") return <TermsPage />;
+  if (authState === "select-type") return <AccountTypeSelect />;
+  if (authState === "business-setup") return <BusinessSetupPage />;
+  if (authState === "tutorial") return <TutorialPage />;
 
   return (
     <BrowserRouter>
@@ -42,6 +47,7 @@ const AppContent = () => {
           <Route path="/expenses" element={mode === "business" ? <BusinessExpensesPage /> : <PersonalExpensesPage />} />
           <Route path="/cashbook" element={<CashbookPage />} />
           <Route path="/reports" element={<ReportsPage />} />
+          <Route path="/employees" element={<EmployeesPage />} />
           <Route path="/budget" element={<BudgetPage />} />
           <Route path="/insights" element={<InsightsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
