@@ -44,11 +44,10 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex flex-col w-56 bg-card border-r border-border shrink-0">
         <div className="p-3 border-b border-border">
-          <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="Avail" className="w-9 h-9 object-contain" />
-            <div className="min-w-0">
-              <p className="text-sm font-bold">{tr.appName}</p>
-              <p className="text-[10px] text-muted-foreground">{tr.slogan}</p>
+          <div className="flex items-center gap-2">
+            <img src="/logo.png" alt="Avail" className="w-28 h-auto object-contain" />
+          </div>
+        </div>
             </div>
           </div>
         </div>
