@@ -44,12 +44,8 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex flex-col w-56 bg-card border-r border-border shrink-0">
         <div className="p-3 border-b border-border">
-          <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="Avail" className="w-9 h-9 object-contain" />
-            <div className="min-w-0">
-              <p className="text-sm font-bold">{tr.appName}</p>
-              <p className="text-[10px] text-muted-foreground">{tr.slogan}</p>
-            </div>
+          <div className="flex items-center gap-2">
+            <img src="/logo.png" alt="Avail" className="w-28 h-auto object-contain" />
           </div>
         </div>
 
@@ -103,8 +99,7 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
       <div className="flex-1 flex flex-col min-w-0">
         <header className="md:hidden flex items-center justify-between px-4 py-2 bg-card border-b border-border">
           <div className="flex items-center gap-2">
-            <img src="/logo.png" alt="Avail" className="w-7 h-7 object-contain" />
-            <h1 className="font-bold text-foreground">{tr.appName}</h1>
+            <img src="/logo.png" alt="Avail" className="w-20 h-auto object-contain" />
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => setLanguage(language === "en" ? "zh-HK" : "en")}
