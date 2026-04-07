@@ -48,9 +48,6 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
             <img src="/logo.png" alt="Avail" className="w-28 h-auto object-contain" />
           </div>
         </div>
-            </div>
-          </div>
-        </div>
 
         <div className="px-3 py-2 border-b border-border">
           <div className="flex items-center gap-2">
