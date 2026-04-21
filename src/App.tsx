@@ -22,6 +22,7 @@ import PersonalDashboard from "@/pages/personal/PersonalDashboard";
 import PersonalExpensesPage from "@/pages/personal/PersonalExpensesPage";
 import BudgetPage from "@/pages/personal/BudgetPage";
 import InsightsPage from "@/pages/personal/InsightsPage";
+import FriendsPage from "@/pages/personal/FriendsPage";
 import SettingsPage from "@/pages/SettingsPage";
 import NotFound from "@/pages/NotFound";
 
@@ -50,6 +51,7 @@ const AppContent = () => {
           <Route path="/employees" element={<EmployeesPage />} />
           <Route path="/budget" element={<BudgetPage />} />
           <Route path="/insights" element={<InsightsPage />} />
+          <Route path="/friends" element={<FriendsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>

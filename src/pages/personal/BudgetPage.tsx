@@ -1,34 +1,80 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { t } from "@/lib/translations";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-
-const initialBudgets = [
-  { category: "Food", limit: 10000, spent: 8500 },
-  { category: "Rent", limit: 15000, spent: 15000 },
-  { category: "Travel", limit: 5000, spent: 4200 },
-  { category: "Bills", limit: 8000, spent: 6800 },
-  { category: "Shopping", limit: 5000, spent: 2100 },
-];
+import EmptyState from "@/components/EmptyState";
+import { db, type PersonalBudgetRow, type PersonalExpenseRow } from "@/lib/db";
+import { subscribeDataChanged } from "@/lib/events";
+import PageHeader from "@/components/PageHeader";
+import { Plus } from "lucide-react";
 
 type ModalMode = "add" | "edit";
 
 const BudgetPage = () => {
-  const { language } = useApp();
+  const { language, session } = useApp();
   const tr = t[language];
-  const [budgets, setBudgets] = useState(initialBudgets);
+  const userId = session?.user?.id ?? null;
+  const [budgets, setBudgets] = useState<PersonalBudgetRow[]>([]);
+  const [expenses, setExpenses] = useState<PersonalExpenseRow[]>([]);
+  const [loading, setLoading] = useState(true);
   const [filterCategory, setFilterCategory] = useState<"all" | string>("all");
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<ModalMode>("add");
   const [modalCategory, setModalCategory] = useState("");
   const [modalLimit, setModalLimit] = useState("5000");
 
-  const filteredBudgets = filterCategory === "all" ? budgets : budgets.filter((b) => b.category === filterCategory);
-  const totalLimit = budgets.reduce((s, b) => s + b.limit, 0);
-  const totalSpent = budgets.reduce((s, b) => s + b.spent, 0);
+  const load = async () => {
+    if (!userId) {
+      setBudgets([]);
+      setExpenses([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    const [budRes, expRes] = await Promise.all([
+      db.personal.listBudgets(userId),
+      db.personal.listExpenses(userId),
+    ]);
+    if (budRes.data) setBudgets(budRes.data);
+    if (expRes.data) setExpenses(expRes.data);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
+
+  useEffect(() => {
+    return subscribeDataChanged(() => {
+      void load();
+    });
+  }, [userId]);
+
+  const monthPrefix = new Date().toISOString().slice(0, 7);
+  const spentByCategory = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const e of expenses) {
+      if (!e.spent_on.startsWith(monthPrefix)) continue;
+      map.set(e.category, (map.get(e.category) ?? 0) + e.amount);
+    }
+    return map;
+  }, [expenses, monthPrefix]);
+
+  const viewBudgets = useMemo(() => {
+    return budgets.map((b) => ({
+      category: b.category,
+      limit: b.monthly_limit,
+      spent: spentByCategory.get(b.category) ?? 0,
+    }));
+  }, [budgets, spentByCategory]);
+
+  const filteredBudgets = filterCategory === "all" ? viewBudgets : viewBudgets.filter((b) => b.category === filterCategory);
+  const totalLimit = viewBudgets.reduce((s, b) => s + b.limit, 0);
+  const totalSpent = viewBudgets.reduce((s, b) => s + b.spent, 0);
 
   const openEditBudget = (category: string) => {
-    const budget = budgets.find((b) => b.category === category);
+    const budget = viewBudgets.find((b) => b.category === category);
     if (!budget) return;
     setModalMode("edit");
     setModalCategory(category);
@@ -43,52 +89,61 @@ const BudgetPage = () => {
     setModalOpen(true);
   };
 
-  const handleModalSubmit = (e: FormEvent) => {
+  const handleModalSubmit = async (e: FormEvent) => {
     e.preventDefault();
     const limit = Number(modalLimit);
     if (Number.isNaN(limit) || limit <= 0) return;
-    if (modalMode === "edit") {
-      setBudgets((prev) =>
-        prev.map((b) => (b.category === modalCategory ? { ...b, limit } : b)),
-      );
-    } else {
-      const category = modalCategory.trim();
-      if (!category) return;
-      if (budgets.some((b) => b.category.toLowerCase() === category.toLowerCase())) return;
-      setBudgets((prev) => [...prev, { category, limit, spent: 0 }]);
-      setFilterCategory(category);
-    }
+    if (!userId) return;
+    const category = modalMode === "edit" ? modalCategory : modalCategory.trim();
+    if (!category) return;
+    await db.personal.upsertBudget({ user_id: userId, category, monthly_limit: limit });
+    await load();
+    setFilterCategory(category);
     setModalOpen(false);
   };
 
+  const titleCase = (value: string) =>
+    value
+      .split(" ")
+      .filter(Boolean)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ");
+
   return (
     <div className="p-4 md:p-6 space-y-4 animate-fade-in">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold">{tr.budget}</h2>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">{tr.budgetFilterTitle}</span>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => setFilterCategory("all")}
-                  className={`px-3 py-1 rounded-full text-xs font-semibold border transition ${filterCategory === "all" ? "bg-primary/10 border-primary text-primary" : "border-border text-muted-foreground"}`}
-                >
-                  {tr.filterAll}
-                </button>
-                {budgets.map((b) => (
-                  <button
-                    key={b.category}
-                    onClick={() => setFilterCategory(b.category)}
-                    className={`px-3 py-1 rounded-full text-xs font-semibold border transition ${filterCategory === b.category ? "bg-primary/10 border-primary text-primary" : "border-border text-muted-foreground"}`}
-                  >
-                    {b.category}
-                  </button>
-                ))}
-              </div>
-              <button onClick={openAddBudget} className="text-xs font-medium text-primary underline">
-                {tr.addBudgetCategory}
+      <PageHeader
+        title={tr.budget}
+        right={(
+          <button
+            onClick={openAddBudget}
+            className="bg-primary text-primary-foreground px-4 py-2 text-sm font-semibold flex items-center gap-2 hover:opacity-90 transition"
+          >
+            <Plus className="h-4 w-4" /> {tr.addBudgetCategory}
+          </button>
+        )}
+        below={(
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-muted-foreground">{tr.budgetFilterTitle}</span>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setFilterCategory("all")}
+                className={`px-3 py-1 rounded-full text-xs font-semibold border transition ${filterCategory === "all" ? "bg-primary/10 border-primary text-primary" : "border-border text-muted-foreground"}`}
+              >
+                {tr.budgetAllCategories}
               </button>
+              {budgets.map((b) => (
+                <button
+                  key={b.category}
+                  onClick={() => setFilterCategory(b.category)}
+                  className={`px-3 py-1 rounded-full text-xs font-semibold border transition ${filterCategory === b.category ? "bg-primary/10 border-primary text-primary" : "border-border text-muted-foreground"}`}
+                >
+                  {titleCase(b.category)}
+                </button>
+              ))}
             </div>
           </div>
+        )}
+      />
 
       {/* Overall */}
       <div className="bg-card border border-border p-4">
@@ -109,7 +164,11 @@ const BudgetPage = () => {
 
       {/* Per category */}
       <div className="space-y-3">
-        {filteredBudgets.map((b) => {
+        {loading ? (
+          <EmptyState title="Loading…" subtitle="" />
+        ) : filteredBudgets.length === 0 ? (
+          <EmptyState title={tr.noData} subtitle={tr.addFirst} />
+        ) : filteredBudgets.map((b) => {
           const pct = (b.spent / b.limit) * 100;
           const over = pct >= 100;
           return (

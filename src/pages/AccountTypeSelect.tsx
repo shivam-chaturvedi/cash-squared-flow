@@ -2,11 +2,14 @@ import { useState } from "react";
 import { useApp, AppMode } from "@/contexts/AppContext";
 import { t } from "@/lib/translations";
 import { User, Briefcase, Check } from "lucide-react";
+import TopAccent from "@/components/TopAccent";
+import LanguageToggle from "@/components/LanguageToggle";
 
 const AccountTypeSelect = () => {
-  const { language, setMode, setAccountTypes, setAuthState } = useApp();
+  const { language, setMode, setAccountTypes, setAuthState, saveProfile } = useApp();
   const tr = t[language];
   const [selected, setSelected] = useState<AppMode[]>([]);
+  const [saving, setSaving] = useState(false);
 
   const toggle = (type: AppMode) => {
     setSelected((prev) =>
@@ -14,11 +17,16 @@ const AccountTypeSelect = () => {
     );
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (selected.length === 0) return;
+    setSaving(true);
     setAccountTypes(selected);
     setMode(selected[0]);
-    // If business is selected, go to business setup
+    await saveProfile({
+      account_types: selected,
+      is_business: selected.includes("business"),
+    });
+    setSaving(false);
     if (selected.includes("business")) {
       setAuthState("business-setup");
     } else {
@@ -27,8 +35,13 @@ const AccountTypeSelect = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md animate-fade-in">
+    <div className="min-h-[100dvh] flex flex-col bg-background">
+      <TopAccent />
+      <div className="flex-1 flex items-center justify-center p-4">
+        <div className="w-full max-w-md animate-fade-in">
+          <div className="flex justify-end mb-3">
+            <LanguageToggle compact />
+          </div>
         <h1 className="text-xl font-bold text-center mb-2">{tr.selectAccountType}</h1>
         <p className="text-muted-foreground text-sm text-center mb-1">{tr.selectMultipleHint}</p>
         <p className="text-muted-foreground text-xs text-center mb-6">{tr.canChangeLater}</p>
@@ -77,11 +90,12 @@ const AccountTypeSelect = () => {
 
         <button
           onClick={handleContinue}
-          disabled={selected.length === 0}
+          disabled={selected.length === 0 || saving}
           className="w-full mt-4 bg-primary text-primary-foreground py-2.5 text-base font-semibold hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {tr.continueBtn} ({selected.length} {tr.selected})
+          {saving ? "Saving…" : `${tr.continueBtn} (${selected.length} ${tr.selected})`}
         </button>
+        </div>
       </div>
     </div>
   );

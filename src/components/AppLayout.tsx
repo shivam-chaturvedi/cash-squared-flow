@@ -8,6 +8,9 @@ import {
 } from "lucide-react";
 import AddTransactionModal from "@/components/modals/AddTransactionModal";
 import AddExpenseModal from "@/components/modals/AddExpenseModal";
+import TopAccent from "@/components/TopAccent";
+import { db } from "@/lib/db";
+import { emitDataChanged } from "@/lib/events";
 
 const businessNav = [
   { key: "dashboard", icon: LayoutDashboard, path: "/" },
@@ -25,24 +28,32 @@ const personalNav = [
   { key: "expenses", icon: Receipt, path: "/expenses" },
   { key: "budget", icon: PiggyBank, path: "/budget" },
   { key: "insights", icon: TrendingUp, path: "/insights" },
+  { key: "friends", icon: Users, path: "/friends" },
   { key: "settings", icon: Settings, path: "/settings" },
 ] as const;
 
 const AppLayout = ({ children }: { children: ReactNode }) => {
-  const { mode, setMode, language, setAuthState, userName, accountTypes } = useApp();
+  const { mode, setMode, language, userName, userEmail, accountTypes, logout, session } = useApp();
   const location = useLocation();
   const navigate = useNavigate();
   const tr = t[language];
   const navItems = mode === "business" ? businessNav : personalNav;
   const [showFabModal, setShowFabModal] = useState(false);
+  const userId = session?.user?.id ?? null;
 
   const hasBoth = accountTypes.includes("business") && accountTypes.includes("personal");
   const isActive = (path: string) => location.pathname === path;
+  const mobileNavItems =
+    mode === "business"
+      ? businessNav.filter((i) => ["dashboard", "customers", "expenses", "reports", "settings"].includes(i.key))
+      : personalNav.filter((i) => ["dashboard", "expenses", "budget", "friends", "settings"].includes(i.key));
 
   return (
-    <div className="min-h-screen flex bg-background">
-      {/* Desktop Sidebar */}
-      <aside className="hidden md:flex flex-col w-56 bg-card border-r border-border shrink-0">
+    <div className="h-[100dvh] bg-background flex flex-col overflow-hidden">
+      <TopAccent />
+      <div className="flex flex-1 min-h-0">
+        {/* Desktop Sidebar */}
+        <aside className="hidden md:flex flex-col w-56 bg-card border-r border-border shrink-0">
         <div className="p-3 border-b border-border">
           <div className="flex items-center gap-2">
             <img src="/logo.png" alt="Cash Squared Flow" className="w-36 h-auto object-contain" />
@@ -56,9 +67,14 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
             </div>
             <div className="min-w-0">
               <p className="text-sm font-semibold truncate">{userName}</p>
+              <p className="text-[11px] text-muted-foreground truncate">{userEmail || tr.profile}</p>
               <p className="text-[10px] text-money-in flex items-center gap-1">
                 <span className="w-1.5 h-1.5 bg-money-in rounded-full" />
                 {tr.online}
+              </p>
+              <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-border" />
+                {accountTypes.length > 0 ? accountTypes.join(", ") : tr.noData}
               </p>
             </div>
           </div>
@@ -87,16 +103,16 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
         </nav>
 
         <div className="mt-6 mb-2 px-3 py-3 border-t border-border">
-          <button
-            onClick={() => {
-              if (window.confirm("Are you sure you want to log out?")) {
-                setAuthState("login");
-              }
-            }}
-            className="flex w-full items-center justify-center rounded-xl border border-border px-3 py-2 text-xs font-semibold text-money-out hover:border-money-out transition"
-          >
-            Log Out
-          </button>
+            <button
+              onClick={() => {
+                if (window.confirm("Are you sure you want to log out?")) {
+                  logout();
+                }
+              }}
+              className="flex w-full items-center justify-center rounded-xl border border-border px-3 py-2 text-xs font-semibold text-money-out hover:border-money-out transition"
+            >
+              Log Out
+            </button>
         </div>
 
       </aside>
@@ -117,7 +133,12 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto pb-20 md:pb-4">{children}</main>
+        <main
+          className="flex-1 overflow-y-auto overscroll-contain pb-20 md:pb-4"
+          style={{ WebkitOverflowScrolling: "touch" }}
+        >
+          {children}
+        </main>
 
         {/* FAB */}
         <button onClick={() => setShowFabModal(true)} className="fixed bottom-20 right-4 md:bottom-6 md:right-6 w-12 h-12 bg-primary text-primary-foreground shadow-lg flex items-center justify-center hover:opacity-90 transition z-50">
@@ -125,7 +146,7 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
         </button>
 
         <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-card border-t border-border flex z-40">
-          {navItems.slice(0, 5).map((item) => {
+          {mobileNavItems.map((item) => {
             const label = tr[item.key as keyof typeof tr] || item.key;
             const active = isActive(item.path);
             return (
@@ -139,10 +160,34 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
       </div>
 
       {mode === "business" ? (
-        <AddTransactionModal open={showFabModal} onClose={() => setShowFabModal(false)} />
+        userId ? (
+          <AddTransactionModal
+            open={showFabModal}
+            onClose={() => setShowFabModal(false)}
+            userId={userId}
+            onAdded={() => emitDataChanged()}
+          />
+        ) : null
       ) : (
-        <AddExpenseModal open={showFabModal} onClose={() => setShowFabModal(false)} type="personal" />
+        userId ? (
+          <AddExpenseModal
+            open={showFabModal}
+            onClose={() => setShowFabModal(false)}
+            type="personal"
+            onAddExpense={async (draft) => {
+              await db.personal.addExpense({
+                user_id: userId,
+                category: draft.category,
+                amount: draft.amount,
+                description: draft.description,
+                spent_on: draft.date,
+              });
+              emitDataChanged();
+            }}
+          />
+        ) : null
       )}
+      </div>
     </div>
   );
 };

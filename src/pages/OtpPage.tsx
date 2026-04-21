@@ -1,12 +1,17 @@
 import { useState } from "react";
 import { useApp } from "@/contexts/AppContext";
+import { supabase } from "@/lib/supabaseClient";
 import { t } from "@/lib/translations";
 import { ShieldCheck } from "lucide-react";
+import TopAccent from "@/components/TopAccent";
+import LanguageToggle from "@/components/LanguageToggle";
 
 const OtpPage = () => {
   const { language, setAuthState, userEmail } = useApp();
   const tr = t[language];
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (index: number, value: string) => {
     if (value.length > 1) return;
@@ -19,14 +24,42 @@ const OtpPage = () => {
     }
   };
 
-  const handleVerify = (e: React.FormEvent) => {
+  const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
-    setAuthState("signup-terms");
+    setErrorMessage(null);
+    if (!userEmail) {
+      setErrorMessage("Email is required to verify OTP.");
+      return;
+    }
+
+    const token = otp.join("");
+    if (token.length !== 6) {
+      setErrorMessage("Enter the 6-digit code from your email.");
+      return;
+    }
+
+    setLoading(true);
+    const { error } = await supabase.auth.verifyOtp({
+      email: userEmail,
+      token,
+      type: "signup",
+    });
+    if (error) {
+      setErrorMessage(error.message);
+    } else {
+      setAuthState("signup-terms");
+    }
+    setLoading(false);
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-sm animate-fade-in text-center">
+    <div className="min-h-[100dvh] flex flex-col bg-background">
+      <TopAccent />
+      <div className="flex-1 flex items-center justify-center p-4">
+        <div className="w-full max-w-sm animate-fade-in text-center">
+          <div className="flex justify-end mb-3">
+            <LanguageToggle compact />
+          </div>
         <div className="w-14 h-14 bg-primary/10 flex items-center justify-center mx-auto mb-4">
           <ShieldCheck className="h-7 w-7 text-primary" />
         </div>
@@ -37,7 +70,7 @@ const OtpPage = () => {
           <div className="flex justify-center gap-2">
             {otp.map((digit, i) => (
               <input
-                key={i}
+                key={`otp-${i}`}
                 id={`otp-${i}`}
                 type="text"
                 inputMode="numeric"
@@ -48,12 +81,21 @@ const OtpPage = () => {
               />
             ))}
           </div>
-          <button type="submit" className="w-full bg-primary text-primary-foreground py-2.5 font-semibold text-base hover:opacity-90 transition">
-            {tr.verify}
+          <button
+            type="submit"
+            className="w-full bg-primary text-primary-foreground py-2.5 font-semibold text-base hover:opacity-90 transition disabled:opacity-60 disabled:cursor-not-allowed"
+            disabled={loading}
+          >
+            {loading ? "Verifying…" : tr.verify}
           </button>
         </form>
 
+        {errorMessage && (
+          <p className="text-xs text-center text-destructive mt-2">{errorMessage}</p>
+        )}
+
         <button className="mt-3 text-sm text-primary font-medium">Resend OTP</button>
+        </div>
       </div>
     </div>
   );

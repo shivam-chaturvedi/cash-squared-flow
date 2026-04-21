@@ -1,8 +1,8 @@
+@import url('https://fonts.googleapis.com/css2?family=Miranda+Sans:ital,wght@0,400..700;1,400..700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-@import url('https://fonts.googleapis.com/css2?family=Miranda+Sans:ital,wght@0,400..700;1,400..700&display=swap');
 
 @layer base {
   :root {
@@ -99,4 +99,21 @@
   .bg-primary-light {
     @apply bg-[hsl(var(--primary-light))];
   }
+}
+
+/* Google Translate: hide default UI and use custom select. */
+#google_translate_element {
+  display: none;
+}
+
+.goog-te-banner-frame {
+  display: none !important;
+}
+
+body {
+  top: 0px !important;
+}
+
+.goog-te-gadget {
+  display: none !important;
 }

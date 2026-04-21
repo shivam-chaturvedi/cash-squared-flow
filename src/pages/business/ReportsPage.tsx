@@ -1,24 +1,90 @@
+import { useEffect, useMemo, useState } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { t } from "@/lib/translations";
 import { Download } from "lucide-react";
 import StatCard from "@/components/StatCard";
-
-const summaryStats = [
-  { label: "Total Revenue", value: "₹3,45,000", variant: "money-in" as const },
-  { label: "Total Expenses", value: "₹1,88,000", variant: "money-out" as const },
-  { label: "Net Profit", value: "₹1,57,000" as const, variant: undefined },
-  { label: "Transactions", value: "234" as const, variant: undefined },
-];
-
-const monthlySummary = [
-  { month: "January", year: 2026, in: 115000, out: 62600 },
-  { month: "February", year: 2026, in: 118000, out: 54000 },
-  { month: "March", year: 2026, in: 135000, out: 42000 },
-];
+import EmptyState from "@/components/EmptyState";
+import { db, type BusinessExpenseRow, type BusinessTransactionRow } from "@/lib/db";
+import { subscribeDataChanged } from "@/lib/events";
+import PageHeader from "@/components/PageHeader";
 
 const ReportsPage = () => {
-  const { language } = useApp();
+  const { language, session } = useApp();
   const tr = t[language];
+  const userId = session?.user?.id ?? null;
+  const [transactions, setTransactions] = useState<BusinessTransactionRow[]>([]);
+  const [expenses, setExpenses] = useState<BusinessExpenseRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      if (!userId) {
+        setTransactions([]);
+        setExpenses([]);
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+      const [txRes, exRes] = await Promise.all([
+        db.business.listTransactions(userId),
+        db.business.listExpenses(userId),
+      ]);
+      if (txRes.data) setTransactions(txRes.data);
+      if (exRes.data) setExpenses(exRes.data);
+      setLoading(false);
+    };
+    void load();
+  }, [userId]);
+
+  useEffect(() => {
+    return subscribeDataChanged(() => {
+      if (!userId) return;
+      void Promise.all([db.business.listTransactions(userId), db.business.listExpenses(userId)]).then(([txRes, exRes]) => {
+        if (txRes.data) setTransactions(txRes.data);
+        if (exRes.data) setExpenses(exRes.data);
+      });
+    });
+  }, [userId]);
+
+  const summaryStats = useMemo(() => {
+    const revenue = transactions.filter((t) => t.type === "in").reduce((s, t) => s + t.amount, 0);
+    const expenseTotal = expenses.reduce((s, e) => s + e.amount, 0);
+    const netProfit = revenue - expenseTotal;
+    return [
+      { label: "Total Revenue", value: `₹${revenue.toLocaleString()}`, variant: "money-in" as const },
+      { label: "Total Expenses", value: `₹${expenseTotal.toLocaleString()}`, variant: "money-out" as const },
+      { label: "Net Profit", value: `₹${netProfit.toLocaleString()}` as const, variant: undefined },
+      { label: "Transactions", value: `${transactions.length}` as const, variant: undefined },
+    ];
+  }, [expenses, transactions]);
+
+  const monthlySummary = useMemo(() => {
+    const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    const months = new Map<string, { year: number; monthIndex: number; in: number; out: number }>();
+    for (const tx of transactions) {
+      const d = new Date(tx.occurred_at);
+      const k = monthKey(d);
+      const item = months.get(k) ?? { year: d.getFullYear(), monthIndex: d.getMonth(), in: 0, out: 0 };
+      if (tx.type === "in") item.in += tx.amount;
+      months.set(k, item);
+    }
+    for (const e of expenses) {
+      const d = new Date(`${e.spent_on}T00:00:00`);
+      const k = monthKey(d);
+      const item = months.get(k) ?? { year: d.getFullYear(), monthIndex: d.getMonth(), in: 0, out: 0 };
+      item.out += e.amount;
+      months.set(k, item);
+    }
+
+    const sorted = Array.from(months.entries())
+      .sort(([a], [b]) => (a < b ? 1 : -1))
+      .slice(0, 6)
+      .map(([_, v]) => {
+        const monthName = new Date(v.year, v.monthIndex, 1).toLocaleString(undefined, { month: "long" });
+        return { month: monthName, year: v.year, in: v.in, out: v.out };
+      });
+    return sorted;
+  }, [expenses, transactions]);
 
   const handleDownloadCsv = () => {
     const headers = ["Metric", "Value"];
@@ -59,36 +125,48 @@ const ReportsPage = () => {
 
   return (
     <div className="p-4 md:p-6 space-y-4 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold">{tr.reports}</h2>
-        <div className="flex gap-2">
-          <button onClick={handleDownloadPdf} className="border border-input px-3 py-1.5 text-xs font-medium flex items-center gap-1 hover:bg-accent transition">
-            <Download className="h-3 w-3" /> {tr.exportPdf}
-          </button>
-          <button onClick={handleDownloadCsv} className="border border-input px-3 py-1.5 text-xs font-medium flex items-center gap-1 hover:bg-accent transition">
-            <Download className="h-3 w-3" /> {tr.exportExcel}
-          </button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {summaryStats.map((stat) => (
-          <StatCard key={stat.label} label={stat.label} value={stat.value} variant={stat.variant} />
-        ))}
-      </div>
-
-      <div className="bg-card border border-border p-4 space-y-3">
-        <h3 className="text-sm font-semibold">{tr.monthlySummary}</h3>
-        {monthlySummary.map((month) => (
-          <div key={`${month.month}-${month.year}`} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-            <span className="text-sm">{month.month} {month.year}</span>
-            <div className="flex gap-6 text-sm">
-              <span className="text-money-in font-medium">+₹{month.in.toLocaleString()}</span>
-              <span className="text-money-out font-medium">-₹{month.out.toLocaleString()}</span>
-            </div>
+      <PageHeader
+        title={tr.reports}
+        right={(
+          <div className="flex gap-2">
+            <button onClick={handleDownloadPdf} className="border border-input px-3 py-1.5 text-xs font-medium flex items-center gap-1 hover:bg-accent transition">
+              <Download className="h-3 w-3" /> {tr.exportPdf}
+            </button>
+            <button onClick={handleDownloadCsv} className="border border-input px-3 py-1.5 text-xs font-medium flex items-center gap-1 hover:bg-accent transition">
+              <Download className="h-3 w-3" /> {tr.exportExcel}
+            </button>
           </div>
-        ))}
-      </div>
+        )}
+      />
+
+      {loading ? (
+        <EmptyState title="Loading…" subtitle="" />
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {summaryStats.map((stat) => (
+              <StatCard key={stat.label} label={stat.label} value={stat.value} variant={stat.variant} />
+            ))}
+          </div>
+
+          <div className="bg-card border border-border p-4 space-y-3">
+            <h3 className="text-sm font-semibold">{tr.monthlySummary}</h3>
+            {monthlySummary.length === 0 ? (
+              <EmptyState title={tr.noData} subtitle={tr.addFirst} />
+            ) : (
+              monthlySummary.map((month) => (
+                <div key={`${month.month}-${month.year}`} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                  <span className="text-sm">{month.month} {month.year}</span>
+                  <div className="flex gap-6 text-sm">
+                    <span className="text-money-in font-medium">+₹{month.in.toLocaleString()}</span>
+                    <span className="text-money-out font-medium">-₹{month.out.toLocaleString()}</span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 };

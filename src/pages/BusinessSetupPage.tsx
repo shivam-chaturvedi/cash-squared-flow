@@ -2,12 +2,24 @@ import { useState } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { t } from "@/lib/translations";
 import { Building2, UserCircle, Mail, Plus, X } from "lucide-react";
+import TopAccent from "@/components/TopAccent";
+import LanguageToggle from "@/components/LanguageToggle";
 
 const BusinessSetupPage = () => {
-  const { language, setAuthState, businessName, setBusinessName, ownerName, setOwnerName } = useApp();
+  const {
+    language,
+    setAuthState,
+    businessName,
+    setBusinessName,
+    ownerName,
+    setOwnerName,
+    saveProfile,
+    accountTypes,
+  } = useApp();
   const tr = t[language];
   const [invites, setInvites] = useState<string[]>([]);
   const [inviteEmail, setInviteEmail] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const addInvite = () => {
     if (inviteEmail.trim() && !invites.includes(inviteEmail.trim())) {
@@ -16,14 +28,28 @@ const BusinessSetupPage = () => {
     }
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (!businessName.trim() || !ownerName.trim()) return;
+    setSaving(true);
+    await saveProfile({
+      business_name: businessName,
+      owner_name: ownerName,
+      invites,
+      account_types: accountTypes,
+      is_business: true,
+    });
+    setSaving(false);
     setAuthState("tutorial");
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md animate-fade-in">
+    <div className="min-h-[100dvh] flex flex-col bg-background">
+      <TopAccent />
+      <div className="flex-1 flex items-center justify-center p-4">
+        <div className="w-full max-w-md animate-fade-in">
+          <div className="flex justify-end mb-3">
+            <LanguageToggle compact />
+          </div>
         <div className="text-center mb-4">
           <div className="w-14 h-14 bg-primary/10 flex items-center justify-center mx-auto mb-3">
             <Building2 className="h-7 w-7 text-primary" />
@@ -67,10 +93,11 @@ const BusinessSetupPage = () => {
             )}
           </div>
 
-          <button onClick={handleContinue} disabled={!businessName.trim() || !ownerName.trim()}
+          <button onClick={handleContinue} disabled={!businessName.trim() || !ownerName.trim() || saving}
             className="w-full bg-primary text-primary-foreground py-2.5 font-semibold text-base hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed mt-2">
-            {tr.continueBtn}
+            {saving ? "Saving…" : tr.continueBtn}
           </button>
+        </div>
         </div>
       </div>
     </div>

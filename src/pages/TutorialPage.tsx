@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { t } from "@/lib/translations";
 import { BookOpen, ChevronRight, ChevronLeft, LayoutDashboard, Users, Receipt, BarChart3, PiggyBank } from "lucide-react";
+import TopAccent from "@/components/TopAccent";
+import LanguageToggle from "@/components/LanguageToggle";
 
 const businessSteps = [
   { icon: LayoutDashboard, title: "Dashboard", desc: "See your daily balance, cash flow charts, and quick action buttons at a glance." },
@@ -17,12 +19,23 @@ const personalSteps = [
   { icon: BarChart3, title: "Insights", desc: "See trends and patterns in your spending to make smarter decisions." },
 ];
 
+type TutorialStep = { icon: typeof LayoutDashboard; title: string; desc: string; section?: "personal" | "business" };
+
 const TutorialPage = () => {
   const { language, setAuthState, accountTypes } = useApp();
   const tr = t[language];
   const [step, setStep] = useState(0);
-  const isBusiness = accountTypes.includes("business");
-  const steps = isBusiness ? businessSteps : personalSteps;
+  const hasBusiness = accountTypes.includes("business");
+  const hasPersonal = accountTypes.includes("personal");
+  const steps: TutorialStep[] =
+    hasBusiness && hasPersonal
+      ? [
+          ...personalSteps.map((s) => ({ ...s, section: "personal" as const })),
+          ...businessSteps.map((s) => ({ ...s, section: "business" as const })),
+        ]
+      : hasBusiness
+        ? businessSteps.map((s) => ({ ...s, section: "business" as const }))
+        : personalSteps.map((s) => ({ ...s, section: "personal" as const }));
 
   const handleFinish = () => {
     setAuthState("authenticated");
@@ -31,11 +44,21 @@ const TutorialPage = () => {
   const currentStep = steps[step];
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md animate-fade-in text-center">
+    <div className="min-h-[100dvh] flex flex-col bg-background">
+      <TopAccent />
+      <div className="flex-1 flex items-center justify-center p-4">
+        <div className="w-full max-w-md animate-fade-in text-center">
+          <div className="flex justify-end mb-3">
+            <LanguageToggle compact />
+          </div>
         <h1 className="text-xl font-bold mb-6">{tr.tutorialTitle}</h1>
 
         <div className="bg-card border border-border p-6 mb-4">
+          {currentStep.section && (
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+              {currentStep.section === "business" ? tr.business : tr.individual}
+            </p>
+          )}
           <div className="w-16 h-16 bg-primary/10 flex items-center justify-center mx-auto mb-4">
             <currentStep.icon className="h-8 w-8 text-primary" />
           </div>
@@ -70,6 +93,7 @@ const TutorialPage = () => {
         <button onClick={handleFinish} className="mt-3 text-sm text-muted-foreground hover:text-foreground transition">
           {tr.skipTutorial}
         </button>
+        </div>
       </div>
     </div>
   );

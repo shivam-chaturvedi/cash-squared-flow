@@ -1,37 +1,99 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { t } from "@/lib/translations";
 import StatCard from "@/components/StatCard";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
-import AddExpenseModal from "@/components/modals/AddExpenseModal";
+import AddExpenseModal, { type ExpenseDraft } from "@/components/modals/AddExpenseModal";
 import { Plus } from "lucide-react";
+import { db, type PersonalExpenseRow } from "@/lib/db";
+import { subscribeDataChanged } from "@/lib/events";
+import PageHeader from "@/components/PageHeader";
 
-const spendingData = [
-  { name: "Food", value: 8500, color: "hsl(38, 92%, 50%)" },
-  { name: "Rent", value: 15000, color: "hsl(220, 70%, 50%)" },
-  { name: "Travel", value: 4200, color: "hsl(145, 63%, 42%)" },
-  { name: "Bills", value: 6800, color: "hsl(0, 72%, 51%)" },
-  { name: "Other", value: 3500, color: "hsl(220, 10%, 60%)" },
+const palette = [
+  "hsl(38, 92%, 50%)",
+  "hsl(220, 70%, 50%)",
+  "hsl(145, 63%, 42%)",
+  "hsl(0, 72%, 51%)",
+  "hsl(262, 80%, 60%)",
+  "hsl(220, 10%, 60%)",
 ];
 
 const PersonalDashboard = () => {
-  const { language } = useApp();
+  const { language, session } = useApp();
   const tr = t[language];
-  const totalSpending = spendingData.reduce((s, d) => s + d.value, 0);
+  const userId = session?.user?.id ?? null;
+  const [expenses, setExpenses] = useState<PersonalExpenseRow[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showExpense, setShowExpense] = useState(false);
+
+  const load = async () => {
+    if (!userId) {
+      setExpenses([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    const res = await db.personal.listExpenses(userId);
+    if (res.data) setExpenses(res.data);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
+
+  useEffect(() => {
+    return subscribeDataChanged(() => {
+      void load();
+    });
+  }, [userId]);
+
+  const monthPrefix = new Date().toISOString().slice(0, 7);
+  const spendingData = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const e of expenses) {
+      if (!e.spent_on.startsWith(monthPrefix)) continue;
+      map.set(e.category, (map.get(e.category) ?? 0) + e.amount);
+    }
+    return Array.from(map.entries()).map(([name, value], idx) => ({
+      name,
+      value,
+      color: palette[idx % palette.length],
+    }));
+  }, [expenses, monthPrefix]);
+
+  const totalSpending = spendingData.reduce((s, d) => s + d.value, 0);
+
+  const handleAddExpense = async (draft: ExpenseDraft) => {
+    if (!userId) return;
+    await db.personal.addExpense({
+      user_id: userId,
+      category: draft.category,
+      amount: draft.amount,
+      description: draft.description,
+      spent_on: draft.date,
+    });
+    await load();
+  };
 
   return (
     <div className="p-4 md:p-6 space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold">{tr.dashboard}</h2>
-        <button onClick={() => setShowExpense(true)} className="bg-primary text-primary-foreground px-4 py-2 text-sm font-medium flex items-center gap-1 hover:opacity-90 transition">
-          <Plus className="h-4 w-4" /> {tr.addExpense}
-        </button>
-      </div>
+      <PageHeader
+        title={tr.dashboard}
+        right={(
+          <button
+            onClick={() => setShowExpense(true)}
+            className="bg-primary text-primary-foreground px-4 py-2 text-sm font-medium flex items-center gap-1 hover:opacity-90 transition"
+          >
+            <Plus className="h-4 w-4" /> {tr.addExpense}
+          </button>
+        )}
+      />
 
       <div className="grid grid-cols-2 gap-3">
-        <StatCard label={tr.totalBalance} value="₹42,500" />
-        <StatCard label={tr.totalSpending} value={`₹${totalSpending.toLocaleString()}`} variant="money-out" />
+        <StatCard label={tr.totalBalance} value={loading ? "—" : "₹0"} />
+        <StatCard label={tr.totalSpending} value={loading ? "—" : `₹${totalSpending.toLocaleString()}`} variant="money-out" />
       </div>
 
       <div className="bg-card border border-border p-4">
@@ -59,7 +121,7 @@ const PersonalDashboard = () => {
         </div>
       </div>
 
-      <AddExpenseModal open={showExpense} onClose={() => setShowExpense(false)} type="personal" />
+      <AddExpenseModal open={showExpense} onClose={() => setShowExpense(false)} type="personal" onAddExpense={handleAddExpense} />
     </div>
   );
 };

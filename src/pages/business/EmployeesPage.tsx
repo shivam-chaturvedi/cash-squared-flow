@@ -1,38 +1,80 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { t } from "@/lib/translations";
 import { Search, Plus, Users, DollarSign, Clock, Shield } from "lucide-react";
 import EmptyState from "@/components/EmptyState";
 import AddEmployeeModal from "@/components/modals/AddEmployeeModal";
-
-const mockEmployees = [
-  { id: 1, name: "Sarah Chen", email: "sarah@company.com", role: "Manager", salary: 65000, lastEdit: "2 hours ago" },
-  { id: 2, name: "James Wilson", email: "james@company.com", role: "Accountant", salary: 52000, lastEdit: "1 day ago" },
-  { id: 3, name: "Maria Garcia", email: "maria@company.com", role: "Sales Rep", salary: 48000, lastEdit: "3 days ago" },
-];
+import { db, type BusinessEmployeeRow } from "@/lib/db";
+import { subscribeDataChanged } from "@/lib/events";
+import PageHeader from "@/components/PageHeader";
 
 const EmployeesPage = () => {
-  const { language } = useApp();
+  const { language, session } = useApp();
   const tr = t[language];
+  const userId = session?.user?.id ?? null;
+  const [employees, setEmployees] = useState<BusinessEmployeeRow[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState<number | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
 
-  const filtered = mockEmployees.filter((e) => e.name.toLowerCase().includes(search.toLowerCase()) || e.email.includes(search));
-  const selectedEmp = mockEmployees.find((e) => e.id === selected);
+  const loadEmployees = async () => {
+    if (!userId) {
+      setEmployees([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    const res = await db.business.listEmployees(userId);
+    if (res.data) setEmployees(res.data);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    void loadEmployees();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
+
+  useEffect(() => {
+    return subscribeDataChanged(() => {
+      void loadEmployees();
+    });
+  }, [userId]);
+
+  const filtered = useMemo(
+    () => employees.filter((e) => e.name.toLowerCase().includes(search.toLowerCase()) || e.email.includes(search)),
+    [employees, search],
+  );
+  const selectedEmp = employees.find((e) => e.id === selected) ?? null;
+
+  const formatLastEdit = (iso: string | null) => {
+    if (!iso) return "-";
+    const d = new Date(iso);
+    const diff = Date.now() - d.getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 60) return `${mins} min ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours} hours ago`;
+    const days = Math.floor(hours / 24);
+    return `${days} days ago`;
+  };
 
   return (
     <div className="h-full flex flex-col md:flex-row">
       <div className="flex-1 md:max-w-lg md:border-r border-border flex flex-col">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-card">
-            <h2 className="text-base font-bold">{tr.employees}</h2>
-            <button
-              onClick={() => setShowAdd(true)}
-              className="bg-primary text-primary-foreground px-3 py-1.5 text-sm font-medium flex items-center gap-1 hover:opacity-90 transition"
-            >
-              <Plus className="h-4 w-4" /> {tr.addEmployee}
-            </button>
-          </div>
+        <div className="px-4 py-3 border-b border-border bg-card">
+          <PageHeader
+            title={tr.employees}
+            right={(
+              <button
+                onClick={() => setShowAdd(true)}
+                className="bg-primary text-primary-foreground px-3 py-1.5 text-sm font-medium flex items-center gap-1 hover:opacity-90 transition"
+              >
+                <Plus className="h-4 w-4" /> {tr.addEmployee}
+              </button>
+            )}
+          />
+        </div>
 
         <div className="p-3 bg-card border-b border-border">
           <div className="relative">
@@ -43,7 +85,9 @@ const EmployeesPage = () => {
         </div>
 
         <div className="flex-1 overflow-auto">
-          {filtered.length === 0 ? (
+          {loading ? (
+            <EmptyState title="Loading…" subtitle="" />
+          ) : filtered.length === 0 ? (
             <EmptyState title={tr.noData} subtitle={tr.addFirst} />
           ) : (
             filtered.map((emp) => (
@@ -52,10 +96,10 @@ const EmployeesPage = () => {
                 <div className="w-9 h-9 bg-primary/10 flex items-center justify-center text-primary font-semibold text-sm shrink-0">{emp.name.charAt(0)}</div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{emp.name}</p>
-                  <p className="text-xs text-muted-foreground">{emp.role}</p>
+                  <p className="text-xs text-muted-foreground">{emp.role || "-"}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-semibold">₹{emp.salary.toLocaleString()}</p>
+                  <p className="text-sm font-semibold">₹{(emp.salary ?? 0).toLocaleString()}</p>
                   <p className="text-[10px] text-muted-foreground">{tr.salary}</p>
                 </div>
               </button>
@@ -77,21 +121,21 @@ const EmployeesPage = () => {
                   <Shield className="h-4 w-4 text-primary" />
                   <span className="text-xs text-muted-foreground">{tr.role}</span>
                 </div>
-                <p className="text-sm font-semibold">{selectedEmp.role}</p>
+                <p className="text-sm font-semibold">{selectedEmp.role || "-"}</p>
               </div>
               <div className="bg-card border border-border p-3">
                 <div className="flex items-center gap-2 mb-1">
                   <DollarSign className="h-4 w-4 text-primary" />
                   <span className="text-xs text-muted-foreground">{tr.salary}</span>
                 </div>
-                <p className="text-sm font-semibold">₹{selectedEmp.salary.toLocaleString()}</p>
+                <p className="text-sm font-semibold">₹{(selectedEmp.salary ?? 0).toLocaleString()}</p>
               </div>
               <div className="bg-card border border-border p-3 col-span-2">
                 <div className="flex items-center gap-2 mb-1">
                   <Clock className="h-4 w-4 text-primary" />
                   <span className="text-xs text-muted-foreground">{tr.editHistory}</span>
                 </div>
-                <p className="text-sm font-semibold">Last edit: {selectedEmp.lastEdit}</p>
+                <p className="text-sm font-semibold">Last edit: {formatLastEdit(selectedEmp.last_edit_at)}</p>
               </div>
             </div>
           </div>
@@ -103,7 +147,14 @@ const EmployeesPage = () => {
         )}
       </div>
 
-      <AddEmployeeModal open={showAdd} onClose={() => setShowAdd(false)} />
+      {userId && (
+        <AddEmployeeModal
+          open={showAdd}
+          onClose={() => setShowAdd(false)}
+          userId={userId}
+          onAdded={() => void loadEmployees()}
+        />
+      )}
     </div>
   );
 };

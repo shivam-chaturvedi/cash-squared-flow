@@ -1,55 +1,50 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { t } from "@/lib/translations";
 import { ArrowDownLeft, ArrowUpRight, Search } from "lucide-react";
-
-const formatDate = (date: Date) => date.toISOString().split("T")[0];
-const formatTime = (date: Date) =>
-  date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hour12: true });
+import EmptyState from "@/components/EmptyState";
+import { db, type BusinessTransactionRow } from "@/lib/db";
+import { subscribeDataChanged } from "@/lib/events";
+import PageHeader from "@/components/PageHeader";
 
 const CashbookPage = () => {
-  const { language } = useApp();
+  const { language, session } = useApp();
   const tr = t[language];
+  const userId = session?.user?.id ?? null;
+  const [transactions, setTransactions] = useState<BusinessTransactionRow[]>([]);
+  const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState<"all" | "in" | "out">("all");
   const [search, setSearch] = useState("");
 
-  const now = useMemo(() => new Date(), []);
-  const transactions = useMemo(() => {
-    const makeTransaction = (
-      id: number,
-      daysAgo: number,
-      desc: string,
-      amount: number,
-      type: "in" | "out",
-      hourOffset: number,
-    ) => {
-      const date = new Date(now);
-      date.setDate(now.getDate() - daysAgo);
-      date.setHours(9 + hourOffset, 0, 0, 0);
-      return {
-        id,
-        desc,
-        amount,
-        type,
-        date: formatDate(date),
-        time: formatTime(date),
-      };
-    };
-    return [
-      makeTransaction(1, 0, "Payment from Rahul", 5000, "in", 0),
-      makeTransaction(2, 0, "Office supplies", 1200, "out", 1),
-      makeTransaction(3, 1, "Client payment", 8500, "in", 2),
-      makeTransaction(4, 1, "Electricity bill", 2300, "out", 3),
-      makeTransaction(5, 2, "Freelance work", 15000, "in", 4),
-      makeTransaction(6, 5, "Equipment rental", 3400, "out", 2),
-      makeTransaction(7, 7, "Recurring income", 7200, "in", 1),
-    ];
-  }, [now]);
+  const loadTransactions = async () => {
+    if (!userId) {
+      setTransactions([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    const res = await db.business.listTransactions(userId);
+    if (res.data) setTransactions(res.data);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    void loadTransactions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
+
+  useEffect(() => {
+    return subscribeDataChanged(() => {
+      void loadTransactions();
+    });
+  }, [userId]);
 
   const filteredTransactions = useMemo(() => {
     return transactions.filter((tx) => {
       const matchesType = typeFilter === "all" ? true : tx.type === typeFilter;
-      const matchesSearch = tx.desc.toLowerCase().includes(search.toLowerCase()) || tx.date.includes(search);
+      const occurred = new Date(tx.occurred_at);
+      const date = occurred.toISOString().split("T")[0];
+      const matchesSearch = tx.description.toLowerCase().includes(search.toLowerCase()) || date.includes(search);
       return matchesType && matchesSearch;
     });
   }, [transactions, typeFilter, search]);
@@ -59,9 +54,7 @@ const CashbookPage = () => {
 
   return (
     <div className="p-4 md:p-6 space-y-4 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold">{tr.cashbook}</h2>
-      </div>
+      <PageHeader title={tr.cashbook} />
 
       {/* Summary */}
       <div className="grid grid-cols-3 gap-3">
@@ -114,24 +107,35 @@ const CashbookPage = () => {
 
       {/* Transactions */}
       <div className="bg-card border border-border divide-y divide-border">
-        {filteredTransactions.map((tx) => (
-          <div key={tx.id} className="flex items-center gap-3 px-4 py-3">
-            <div className={`w-8 h-8 flex items-center justify-center ${tx.type === "in" ? "bg-money-in-light" : "bg-money-out-light"}`}>
-              {tx.type === "in" ? (
-                <ArrowDownLeft className="h-4 w-4 text-money-in" />
-              ) : (
-                <ArrowUpRight className="h-4 w-4 text-money-out" />
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{tx.desc}</p>
-              <p className="text-xs text-muted-foreground">{tx.date} • {tx.time}</p>
-            </div>
-            <p className={`text-sm font-semibold ${tx.type === "in" ? "text-money-in" : "text-money-out"}`}>
-              {tx.type === "in" ? "+" : "-"}₹{tx.amount.toLocaleString()}
-            </p>
-          </div>
-        ))}
+        {loading ? (
+          <EmptyState title="Loading…" subtitle="" />
+        ) : filteredTransactions.length === 0 ? (
+          <EmptyState title={tr.noData} subtitle={tr.addFirst} />
+        ) : (
+          filteredTransactions.map((tx) => {
+            const occurred = new Date(tx.occurred_at);
+            const date = occurred.toISOString().split("T")[0];
+            const time = occurred.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hour12: true });
+            return (
+              <div key={tx.id} className="flex items-center gap-3 px-4 py-3">
+                <div className={`w-8 h-8 flex items-center justify-center ${tx.type === "in" ? "bg-money-in-light" : "bg-money-out-light"}`}>
+                  {tx.type === "in" ? (
+                    <ArrowDownLeft className="h-4 w-4 text-money-in" />
+                  ) : (
+                    <ArrowUpRight className="h-4 w-4 text-money-out" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{tx.description}</p>
+                  <p className="text-xs text-muted-foreground">{date} • {time}</p>
+                </div>
+                <p className={`text-sm font-semibold ${tx.type === "in" ? "text-money-in" : "text-money-out"}`}>
+                  {tx.type === "in" ? "+" : "-"}₹{tx.amount.toLocaleString()}
+                </p>
+              </div>
+            );
+          })
+        )}
       </div>
     </div>
   );
