@@ -3,6 +3,7 @@ import { useApp } from "@/contexts/AppContext";
 import { t } from "@/lib/translations";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { db, type BusinessCustomerRow } from "@/lib/db";
+import { useMoney } from "@/hooks/useMoney";
 
 interface Props {
   open: boolean;
@@ -14,6 +15,7 @@ interface Props {
 const AddCustomerModal = ({ open, onClose, userId, onAdded }: Props) => {
   const { language } = useApp();
   const tr = t[language];
+  const { currencySymbol } = useMoney();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -58,7 +60,7 @@ const AddCustomerModal = ({ open, onClose, userId, onAdded }: Props) => {
           <div className="flex gap-3">
             <input
               type="number"
-              placeholder="Opening Balance (₹)"
+              placeholder={`Opening Balance (${currencySymbol})`}
               value={openingBalance}
               onChange={(e) => setOpeningBalance(e.target.value)}
               className="flex-1 border border-input bg-background px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"

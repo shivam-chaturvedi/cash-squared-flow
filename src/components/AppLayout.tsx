@@ -11,6 +11,7 @@ import AddExpenseModal from "@/components/modals/AddExpenseModal";
 import TopAccent from "@/components/TopAccent";
 import { db } from "@/lib/db";
 import { emitDataChanged } from "@/lib/events";
+import GoogleTranslateLoader from "@/components/GoogleTranslateLoader";
 
 const businessNav = [
   { key: "dashboard", icon: LayoutDashboard, path: "/" },
@@ -51,6 +52,7 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
   return (
     <div className="h-[100dvh] bg-background flex flex-col overflow-hidden">
       <TopAccent />
+      <GoogleTranslateLoader />
       <div className="flex flex-1 min-h-0">
         {/* Desktop Sidebar */}
         <aside className="hidden md:flex flex-col w-56 bg-card border-r border-border shrink-0">
@@ -134,7 +136,7 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
         </header>
 
         <main
-          className="flex-1 overflow-y-auto overscroll-contain pb-20 md:pb-4"
+          className="flex-1 overflow-y-auto overscroll-contain pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-4"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
           {children}
@@ -145,7 +147,7 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
           <Plus className="h-5 w-5" />
         </button>
 
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-card border-t border-border flex z-40">
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-card border-t border-border flex z-40 pb-[env(safe-area-inset-bottom)]">
           {mobileNavItems.map((item) => {
             const label = tr[item.key as keyof typeof tr] || item.key;
             const active = isActive(item.path);

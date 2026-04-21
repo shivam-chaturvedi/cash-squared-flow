@@ -7,10 +7,12 @@ import AddEmployeeModal from "@/components/modals/AddEmployeeModal";
 import { db, type BusinessEmployeeRow } from "@/lib/db";
 import { subscribeDataChanged } from "@/lib/events";
 import PageHeader from "@/components/PageHeader";
+import { useMoney } from "@/hooks/useMoney";
 
 const EmployeesPage = () => {
   const { language, session } = useApp();
   const tr = t[language];
+  const { formatMoney } = useMoney();
   const userId = session?.user?.id ?? null;
   const [employees, setEmployees] = useState<BusinessEmployeeRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -99,7 +101,7 @@ const EmployeesPage = () => {
                   <p className="text-xs text-muted-foreground">{emp.role || "-"}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-semibold">₹{(emp.salary ?? 0).toLocaleString()}</p>
+                  <p className="text-sm font-semibold">{formatMoney(emp.salary ?? 0)}</p>
                   <p className="text-[10px] text-muted-foreground">{tr.salary}</p>
                 </div>
               </button>
@@ -128,7 +130,7 @@ const EmployeesPage = () => {
                   <DollarSign className="h-4 w-4 text-primary" />
                   <span className="text-xs text-muted-foreground">{tr.salary}</span>
                 </div>
-                <p className="text-sm font-semibold">₹{(selectedEmp.salary ?? 0).toLocaleString()}</p>
+                <p className="text-sm font-semibold">{formatMoney(selectedEmp.salary ?? 0)}</p>
               </div>
               <div className="bg-card border border-border p-3 col-span-2">
                 <div className="flex items-center gap-2 mb-1">

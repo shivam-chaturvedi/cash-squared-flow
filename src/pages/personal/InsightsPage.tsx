@@ -6,10 +6,12 @@ import EmptyState from "@/components/EmptyState";
 import { db, type PersonalExpenseRow } from "@/lib/db";
 import { subscribeDataChanged } from "@/lib/events";
 import PageHeader from "@/components/PageHeader";
+import { useMoney } from "@/hooks/useMoney";
 
 const InsightsPage = () => {
   const { language, session } = useApp();
   const tr = t[language];
+  const { formatMoney } = useMoney();
   const userId = session?.user?.id ?? null;
   const [expenses, setExpenses] = useState<PersonalExpenseRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -78,14 +80,14 @@ const InsightsPage = () => {
           ) : monthlyData.length === 0 ? (
             <EmptyState title={tr.noData} subtitle={tr.addFirst} />
           ) : (
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={monthlyData}>
-                <XAxis dataKey="month" axisLine={false} tickLine={false} className="text-xs" />
-                <YAxis hide />
-                <Tooltip formatter={(v: number) => `₹${v.toLocaleString()}`} contentStyle={{ border: "1px solid hsl(220,15%,90%)", borderRadius: 0, fontSize: 12 }} />
-                <Line type="monotone" dataKey="amount" stroke="hsl(220, 70%, 50%)" strokeWidth={2} dot={{ r: 3 }} />
-              </LineChart>
-            </ResponsiveContainer>
+	            <ResponsiveContainer width="100%" height="100%">
+	              <LineChart data={monthlyData}>
+	                <XAxis dataKey="month" axisLine={false} tickLine={false} className="text-xs" />
+	                <YAxis hide />
+	                <Tooltip formatter={(v: number) => formatMoney(Number(v))} contentStyle={{ border: "1px solid hsl(220,15%,90%)", borderRadius: 0, fontSize: 12 }} />
+	                <Line type="monotone" dataKey="amount" stroke="hsl(220, 70%, 50%)" strokeWidth={2} dot={{ r: 3 }} />
+	              </LineChart>
+	            </ResponsiveContainer>
           )}
         </div>
       </div>
@@ -99,14 +101,14 @@ const InsightsPage = () => {
           ) : categoryData.length === 0 ? (
             <EmptyState title={tr.noData} subtitle={tr.addFirst} />
           ) : (
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={categoryData} layout="vertical">
-                <XAxis type="number" hide />
-                <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} width={50} className="text-xs" />
-                <Tooltip formatter={(v: number) => `₹${v.toLocaleString()}`} contentStyle={{ border: "1px solid hsl(220,15%,90%)", borderRadius: 0, fontSize: 12 }} />
-                <Bar dataKey="amount" fill="hsl(220, 70%, 50%)" />
-              </BarChart>
-            </ResponsiveContainer>
+	            <ResponsiveContainer width="100%" height="100%">
+	              <BarChart data={categoryData} layout="vertical">
+	                <XAxis type="number" hide />
+	                <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} width={50} className="text-xs" />
+	                <Tooltip formatter={(v: number) => formatMoney(Number(v))} contentStyle={{ border: "1px solid hsl(220,15%,90%)", borderRadius: 0, fontSize: 12 }} />
+	                <Bar dataKey="amount" fill="hsl(220, 70%, 50%)" />
+	              </BarChart>
+	            </ResponsiveContainer>
           )}
         </div>
       </div>

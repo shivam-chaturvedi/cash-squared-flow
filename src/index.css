@@ -101,10 +101,7 @@
   }
 }
 
-/* Google Translate: hide default UI and use custom select. */
-#google_translate_element {
-  display: none;
-}
+/* Google Translate: hide banner/default UI, keep widget mounted (off-screen) for reliability. */
 
 .goog-te-banner-frame {
   display: none !important;

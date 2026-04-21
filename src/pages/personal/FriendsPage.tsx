@@ -8,10 +8,12 @@ import { Plus, Users } from "lucide-react";
 import { db, type PersonalFriendEntryRow, type PersonalFriendRow } from "@/lib/db";
 import { subscribeDataChanged } from "@/lib/events";
 import PageHeader from "@/components/PageHeader";
+import { useMoney } from "@/hooks/useMoney";
 
 const FriendsPage = () => {
   const { language, session, userName } = useApp();
   const tr = t[language];
+  const { formatMoney, formatMoneyAbs, currencySymbol } = useMoney();
   const userId = session?.user?.id ?? null;
   const [friends, setFriends] = useState<PersonalFriendRow[]>([]);
   const [txns, setTxns] = useState<PersonalFriendEntryRow[]>([]);
@@ -133,11 +135,11 @@ const FriendsPage = () => {
           scope: "personal",
           type: "friend_update",
           title: tr.friendUpdated,
-          description: `${who}: ${directionLabel} ₹${amt.toLocaleString()}`,
+          description: `${who}: ${directionLabel} ${formatMoney(amt)}`,
           actor: userName,
           actor_role: null,
         });
-        toast({ title: tr.friendUpdated, description: `${who}: ${directionLabel} ₹${amt.toLocaleString()}` });
+        toast({ title: tr.friendUpdated, description: `${who}: ${directionLabel} ${formatMoney(amt)}` });
       }
     })();
   };
@@ -176,7 +178,6 @@ const FriendsPage = () => {
               const bal = balances.get(f.id) ?? 0;
               const isSelected = selectedFriendId === f.id;
               const label = bal === 0 ? tr.settledUp : bal > 0 ? tr.theyOweYou : tr.youOweThem;
-              const amountLabel = `₹${Math.abs(bal).toLocaleString()}`;
               return (
                 <button
                   key={f.id}
@@ -194,7 +195,7 @@ const FriendsPage = () => {
                   </div>
                   <div className="text-right">
                     <p className={`text-sm font-semibold ${bal === 0 ? "text-muted-foreground" : bal > 0 ? "text-money-in" : "text-money-out"}`}>
-                      {amountLabel}
+                      {formatMoneyAbs(bal)}
                     </p>
                     <p className="text-[10px] text-muted-foreground">{label}</p>
                   </div>
@@ -224,7 +225,7 @@ const FriendsPage = () => {
             <div className="mt-4 bg-card border border-border p-4">
               <p className="text-xs text-muted-foreground">{tr.netBalance}</p>
               <p className="text-2xl font-bold">
-                ₹{Math.abs(balances.get(selectedFriend.id) ?? 0).toLocaleString()}{" "}
+                {formatMoneyAbs(balances.get(selectedFriend.id) ?? 0)}{" "}
                 <span className="text-sm font-semibold text-muted-foreground">
                   {(balances.get(selectedFriend.id) ?? 0) === 0
                     ? tr.settledUp
@@ -243,7 +244,7 @@ const FriendsPage = () => {
                   <div key={txn.id} className="flex items-center justify-between gap-4 px-4 py-3">
                     <div className="min-w-0">
                       <p className="text-sm font-medium truncate">
-                        {txn.direction === "they_owe_me" ? tr.theyOweYou : tr.youOweThem} · ₹{Number(txn.amount).toLocaleString()}
+                        {txn.direction === "they_owe_me" ? tr.theyOweYou : tr.youOweThem} · {formatMoney(Number(txn.amount))}
                       </p>
                       <p className="text-xs text-muted-foreground truncate">
                         {txn.note ? `${txn.note} • ` : ""}
@@ -251,7 +252,7 @@ const FriendsPage = () => {
                       </p>
                     </div>
                     <span className={`text-sm font-semibold ${txn.direction === "they_owe_me" ? "text-money-in" : "text-money-out"}`}>
-                      {txn.direction === "they_owe_me" ? "+" : "-"}₹{Number(txn.amount).toLocaleString()}
+                      {formatMoney(txn.direction === "they_owe_me" ? Number(txn.amount) : -Number(txn.amount), { signDisplay: "always" })}
                     </span>
                   </div>
                 ))
@@ -326,7 +327,7 @@ const FriendsPage = () => {
               type="number"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              placeholder={tr.amountPlaceholder}
+              placeholder={`${tr.amountPlaceholder} (${currencySymbol})`}
               className="w-full border border-input bg-background px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               required
               min={1}

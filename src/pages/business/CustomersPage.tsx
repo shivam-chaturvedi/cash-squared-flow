@@ -10,10 +10,12 @@ import AddTransactionModal from "@/components/modals/AddTransactionModal";
 import { db, type BusinessCustomerRow } from "@/lib/db";
 import { subscribeDataChanged } from "@/lib/events";
 import PageHeader from "@/components/PageHeader";
+import { useMoney } from "@/hooks/useMoney";
 
 const CustomersPage = () => {
   const { language, session } = useApp();
   const tr = t[language];
+  const { formatMoney, formatMoneyAbs } = useMoney();
   const navigate = useNavigate();
   const userId = session?.user?.id ?? null;
   const [customers, setCustomers] = useState<BusinessCustomerRow[]>([]);
@@ -88,16 +90,15 @@ const CustomersPage = () => {
         <div className="p-4 space-y-3 bg-card border-b border-border">
           <PageHeader
             title={tr.customers}
-            showLanguageToggle={false}
             below={(
               <div className="space-y-3">
                 <div className="flex items-center gap-4 text-sm flex-wrap">
-                  <span>{tr.youllGive}: <span className="font-semibold text-money-out">₹{totalGive.toLocaleString()}</span></span>
-                  <span>{tr.youllGet}: <span className="font-semibold text-money-in">₹{totalGet.toLocaleString()}</span></span>
-                  <button
-                    onClick={() => navigate("/reports")}
-                    className="ml-auto text-primary text-xs font-medium border border-primary px-3 py-1 flex items-center gap-1"
-                  >
+                  <span>{tr.youllGive}: <span className="font-semibold text-money-out">{formatMoney(totalGive)}</span></span>
+                  <span>{tr.youllGet}: <span className="font-semibold text-money-in">{formatMoney(totalGet)}</span></span>
+	                  <button
+	                    onClick={() => navigate("/reports")}
+	                    className="ml-auto text-primary text-xs font-medium border border-primary px-3 py-1 flex items-center gap-1"
+	                  >
                     {tr.viewReport}
                   </button>
                 </div>
@@ -155,10 +156,10 @@ const CustomersPage = () => {
                   <p className="text-sm font-medium truncate">{c.name}</p>
                   <p className="text-xs text-muted-foreground">{c.phone || "-"}</p>
                 </div>
-                <div className="text-right">
-                  <p className={`text-sm font-semibold ${c.type === "get" ? "text-money-in" : "text-money-out"}`}>₹{Math.abs(c.balance).toLocaleString()}</p>
-                  <p className="text-[10px] text-muted-foreground">{c.type === "get" ? tr.youllGet : tr.youllGive}</p>
-                </div>
+	                <div className="text-right">
+	                  <p className={`text-sm font-semibold ${c.type === "get" ? "text-money-in" : "text-money-out"}`}>{formatMoneyAbs(c.balance)}</p>
+	                  <p className="text-[10px] text-muted-foreground">{c.type === "get" ? tr.youllGet : tr.youllGive}</p>
+	                </div>
               </button>
             ))
           )}
@@ -180,8 +181,8 @@ const CustomersPage = () => {
             <div className="w-16 h-16 bg-primary/10 flex items-center justify-center mx-auto mb-4 text-primary font-bold text-xl">{selectedCustomer.name.charAt(0)}</div>
             <h3 className="font-semibold text-lg">{selectedCustomer.name}</h3>
             <p className="text-sm text-muted-foreground">{selectedCustomer.phone}</p>
-            <p className={`text-2xl font-bold mt-4 ${selectedCustomer.type === "get" ? "text-money-in" : "text-money-out"}`}>₹{Math.abs(selectedCustomer.balance).toLocaleString()}</p>
-            <p className="text-xs text-muted-foreground mt-1">{selectedCustomer.type === "get" ? tr.youllGet : tr.youllGive}</p>
+	            <p className={`text-2xl font-bold mt-4 ${selectedCustomer.type === "get" ? "text-money-in" : "text-money-out"}`}>{formatMoneyAbs(selectedCustomer.balance)}</p>
+	            <p className="text-xs text-muted-foreground mt-1">{selectedCustomer.type === "get" ? tr.youllGet : tr.youllGive}</p>
             <div className="flex gap-3 mt-6 justify-center">
               <button
                 onClick={() => { setTransactionType("in"); setShowTransaction(true); }}

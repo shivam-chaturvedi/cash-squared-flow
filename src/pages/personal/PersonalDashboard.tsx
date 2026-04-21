@@ -8,6 +8,9 @@ import { Plus } from "lucide-react";
 import { db, type PersonalExpenseRow } from "@/lib/db";
 import { subscribeDataChanged } from "@/lib/events";
 import PageHeader from "@/components/PageHeader";
+import { useMoney } from "@/hooks/useMoney";
+import CurrencyToggle from "@/components/CurrencyToggle";
+import SimpleGoogleTranslator from "@/components/SimpleGoogleTranslator";
 
 const palette = [
   "hsl(38, 92%, 50%)",
@@ -21,6 +24,7 @@ const palette = [
 const PersonalDashboard = () => {
   const { language, session } = useApp();
   const tr = t[language];
+  const { formatMoney } = useMoney();
   const userId = session?.user?.id ?? null;
   const [expenses, setExpenses] = useState<PersonalExpenseRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -82,39 +86,43 @@ const PersonalDashboard = () => {
       <PageHeader
         title={tr.dashboard}
         right={(
-          <button
-            onClick={() => setShowExpense(true)}
-            className="bg-primary text-primary-foreground px-4 py-2 text-sm font-medium flex items-center gap-1 hover:opacity-90 transition"
-          >
-            <Plus className="h-4 w-4" /> {tr.addExpense}
-          </button>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <CurrencyToggle compact />
+            <SimpleGoogleTranslator />
+            <button
+              onClick={() => setShowExpense(true)}
+              className="bg-primary text-primary-foreground px-4 py-2 text-sm font-medium flex items-center gap-1 hover:opacity-90 transition"
+            >
+              <Plus className="h-4 w-4" /> {tr.addExpense}
+            </button>
+          </div>
         )}
       />
 
       <div className="grid grid-cols-2 gap-3">
-        <StatCard label={tr.totalBalance} value={loading ? "—" : "₹0"} />
-        <StatCard label={tr.totalSpending} value={loading ? "—" : `₹${totalSpending.toLocaleString()}`} variant="money-out" />
+        <StatCard label={tr.totalBalance} value={loading ? "—" : formatMoney(0)} />
+        <StatCard label={tr.totalSpending} value={loading ? "—" : formatMoney(totalSpending)} variant="money-out" />
       </div>
 
       <div className="bg-card border border-border p-4">
         <h3 className="text-sm font-semibold mb-4">Spending by Category</h3>
-        <div className="flex items-center gap-6">
-          <div className="w-40 h-40">
+        <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start">
+          <div className="w-56 max-w-full h-56 sm:w-40 sm:h-40">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie data={spendingData} dataKey="value" cx="50%" cy="50%" innerRadius={35} outerRadius={65} strokeWidth={0}>
                   {spendingData.map((entry) => <Cell key={entry.name} fill={entry.color} />)}
                 </Pie>
-                <Tooltip formatter={(v: number) => `₹${v.toLocaleString()}`} />
+                <Tooltip formatter={(v: number) => formatMoney(Number(v))} />
               </PieChart>
             </ResponsiveContainer>
           </div>
-          <div className="space-y-2">
+          <div className="w-full space-y-2 sm:w-auto">
             {spendingData.map((d) => (
               <div key={d.name} className="flex items-center gap-2 text-xs">
                 <div className="w-2.5 h-2.5 shrink-0" style={{ backgroundColor: d.color }} />
                 <span className="text-muted-foreground">{d.name}</span>
-                <span className="font-medium ml-auto">₹{d.value.toLocaleString()}</span>
+                <span className="font-medium ml-auto">{formatMoney(d.value)}</span>
               </div>
             ))}
           </div>

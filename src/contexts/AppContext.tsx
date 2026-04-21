@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode, useMemo, useRef } from "react";
 import { PostgrestError, Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabaseClient";
+import { detectDefaultCurrency, type CurrencyCode } from "@/lib/money";
 
 export type AppMode = "business" | "personal";
 export type Language = "en" | "zh-HK";
@@ -29,12 +30,17 @@ export type Profile = {
 };
 
 interface AppContextType {
+  booting: boolean;
   mode: AppMode;
   setMode: (m: AppMode) => void;
   accountTypes: AppMode[];
   setAccountTypes: (types: AppMode[]) => void;
   language: Language;
   setLanguage: (l: Language) => void;
+  currency: CurrencyCode;
+  setCurrency: (c: CurrencyCode) => void;
+  translateLang: string;
+  setTranslateLang: (l: string) => void;
   authState: AuthState;
   setAuthState: (s: AuthState) => void;
   userName: string;
@@ -58,7 +64,8 @@ type StoredState = {
   mode: AppMode;
   accountTypes: AppMode[];
   language: Language;
-  authState: AuthState;
+  currency: CurrencyCode;
+  translateLang: string;
   userName: string;
   userAge: string;
   userEmail: string;
@@ -90,10 +97,14 @@ export const useApp = () => {
 
 export const AppProvider = ({ children }: { children: ReactNode }) => {
   const stored = readStoredState();
+  const [booting, setBooting] = useState(true);
   const [mode, setMode] = useState<AppMode>(stored?.mode ?? "business");
   const [accountTypes, setAccountTypes] = useState<AppMode[]>(stored?.accountTypes ?? []);
   const [language, setLanguage] = useState<Language>(stored?.language ?? "en");
-  const [authState, setAuthState] = useState<AuthState>(stored?.authState ?? "login");
+  const [currency, setCurrency] = useState<CurrencyCode>(stored?.currency ?? detectDefaultCurrency());
+  // Always start in English on refresh; user can switch from the dashboard dropdown.
+  const [translateLang, setTranslateLang] = useState<string>("en");
+  const [authState, setAuthState] = useState<AuthState>("login");
   const [userName, setUserName] = useState(stored?.userName ?? "User");
   const [userAge, setUserAge] = useState(stored?.userAge ?? "");
   const [userEmail, setUserEmail] = useState(stored?.userEmail ?? "");
@@ -230,6 +241,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setUserAge("");
     setBusinessName("");
     setOwnerName("");
+    setCurrency(detectDefaultCurrency());
+    setTranslateLang("en");
     setAuthState("login");
   }, []);
 
@@ -254,7 +267,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       mode,
       accountTypes,
       language,
-      authState,
+      currency,
+      translateLang,
       userName,
       userAge,
       userEmail,
@@ -262,7 +276,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       ownerName,
     };
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-  }, [mode, accountTypes, language, authState, userName, userAge, userEmail, businessName, ownerName]);
+  }, [mode, accountTypes, language, currency, translateLang, userName, userAge, userEmail, businessName, ownerName]);
 
   const authStateRef = useRef<AuthState>(authState);
   const loadProfileRef = useRef(loadProfile);
@@ -290,7 +304,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         lastLoadedUserIdRef.current = currentSession.user.id;
         setAuthState(getNextAuthState(profileData));
         clearAuthHashFromUrl();
+        setBooting(false);
+        return;
       }
+
+      setAuthState("login");
+      setBooting(false);
     };
 
     void init();
@@ -311,6 +330,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             lastLoadedUserIdRef.current = userId;
             setAuthState(getNextAuthState(profileData));
             clearAuthHashFromUrl();
+            setBooting(false);
           });
         }
       } else {
@@ -318,6 +338,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         setAuthState("login");
         setUserName("User");
         setUserEmail("");
+        setBooting(false);
       }
     });
 
@@ -329,12 +350,17 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <AppContext.Provider value={{
+      booting,
       mode,
       setMode,
       accountTypes,
       setAccountTypes,
       language,
       setLanguage,
+      currency,
+      setCurrency,
+      translateLang,
+      setTranslateLang,
       authState,
       setAuthState,
       userName,

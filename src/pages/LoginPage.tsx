@@ -4,7 +4,6 @@ import { supabase } from "@/lib/supabaseClient";
 import { t } from "@/lib/translations";
 import { Mail, Lock, Eye, EyeOff, User, Calendar } from "lucide-react";
 import TopAccent from "@/components/TopAccent";
-import SimpleGoogleTranslator from "@/components/SimpleGoogleTranslator";
 
 const LoginPage = () => {
   const { language, setAuthState, setUserName, setUserAge, setUserEmail } = useApp();
@@ -108,9 +107,6 @@ const LoginPage = () => {
       <div className="w-full max-w-sm animate-fade-in">
         {/* Logo & Brand */}
         <div className="mb-6">
-          <div className="flex justify-end mb-3">
-            <SimpleGoogleTranslator />
-          </div>
           <div className="text-center">
           <img src="/logo.png" alt="Cash Squared Flow" className="w-52 h-auto mx-auto mb-2 object-contain" />
           <p className="text-muted-foreground text-sm mt-0.5">{tr.slogan}</p>

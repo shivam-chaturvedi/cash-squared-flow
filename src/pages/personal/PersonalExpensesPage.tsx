@@ -8,10 +8,12 @@ import { toast } from "@/hooks/use-toast";
 import { db, type PersonalBudgetRow, type PersonalExpenseRow } from "@/lib/db";
 import { subscribeDataChanged } from "@/lib/events";
 import PageHeader from "@/components/PageHeader";
+import { useMoney } from "@/hooks/useMoney";
 
 const PersonalExpensesPage = () => {
   const { language, session, userName } = useApp();
   const tr = t[language];
+  const { formatMoney } = useMoney();
   const userId = session?.user?.id ?? null;
   const [showAdd, setShowAdd] = useState(false);
   const [expenses, setExpenses] = useState<PersonalExpenseRow[]>([]);
@@ -72,34 +74,34 @@ const PersonalExpensesPage = () => {
     });
     await load();
 
-    await addNotification({
-      user_id: userId,
-      scope: "personal",
-      type: "expense_added",
-      title: tr.expenseAdded,
-      description: `${draft.category}: -₹${draft.amount.toLocaleString()}`,
-      actor: userName,
-      actor_role: null,
-    });
+	    await addNotification({
+	      user_id: userId,
+	      scope: "personal",
+	      type: "expense_added",
+	      title: tr.expenseAdded,
+	      description: `${draft.category}: ${formatMoney(-draft.amount)}`,
+	      actor: userName,
+	      actor_role: null,
+	    });
 
     const monthPrefix = new Date().toISOString().slice(0, 7);
     const spentThisMonth = expenses
       .filter((e) => e.category === draft.category && e.spent_on.startsWith(monthPrefix))
       .reduce((s, e) => s + e.amount, 0) + draft.amount;
-    const budget = budgets.find((b) => b.category === draft.category);
-    if (budget && spentThisMonth >= budget.monthly_limit) {
-      await addNotification({
-        user_id: userId,
-        scope: "personal",
-        type: "budget_over",
-        title: tr.budgetExceeded,
-        description: `${draft.category}: ₹${spentThisMonth.toLocaleString()} / ₹${budget.monthly_limit.toLocaleString()}`,
-        actor: userName,
-        actor_role: null,
-      });
-      toast({ title: tr.budgetExceeded, description: `${draft.category}: ₹${spentThisMonth.toLocaleString()} / ₹${budget.monthly_limit.toLocaleString()}` });
-    }
-  };
+	    const budget = budgets.find((b) => b.category === draft.category);
+	    if (budget && spentThisMonth >= budget.monthly_limit) {
+	      await addNotification({
+	        user_id: userId,
+	        scope: "personal",
+	        type: "budget_over",
+	        title: tr.budgetExceeded,
+	        description: `${draft.category}: ${formatMoney(spentThisMonth)} / ${formatMoney(budget.monthly_limit)}`,
+	        actor: userName,
+	        actor_role: null,
+	      });
+	      toast({ title: tr.budgetExceeded, description: `${draft.category}: ${formatMoney(spentThisMonth)} / ${formatMoney(budget.monthly_limit)}` });
+	    }
+	  };
 
   return (
     <div className="p-4 md:p-6 space-y-4 animate-fade-in">
@@ -138,9 +140,9 @@ const PersonalExpensesPage = () => {
               <p className="text-sm font-medium truncate">{exp.description || tr.expense}</p>
               <p className="text-xs text-muted-foreground">{exp.category} • {exp.spent_on}</p>
             </div>
-            <p className="text-sm font-semibold text-money-out">-₹{exp.amount.toLocaleString()}</p>
-          </div>
-        )})}
+	            <p className="text-sm font-semibold text-money-out">{formatMoney(-exp.amount)}</p>
+	          </div>
+	        )})}
       </div>
 
       <AddExpenseModal open={showAdd} onClose={() => setShowAdd(false)} type="personal" onAddExpense={handleAddExpense} />

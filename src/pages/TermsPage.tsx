@@ -3,7 +3,6 @@ import { useApp } from "@/contexts/AppContext";
 import { t } from "@/lib/translations";
 import { FileText } from "lucide-react";
 import TopAccent from "@/components/TopAccent";
-import LanguageToggle from "@/components/LanguageToggle";
 
 const TermsPage = () => {
   const { language, setAuthState, saveProfile } = useApp();
@@ -25,11 +24,8 @@ const TermsPage = () => {
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background">
       <TopAccent />
-      <div className="flex-1 flex items-center justify-center p-4">
-        <div className="w-full max-w-md animate-fade-in">
-          <div className="flex justify-end mb-3">
-            <LanguageToggle compact />
-          </div>
+        <div className="flex-1 flex items-center justify-center p-4">
+          <div className="w-full max-w-md animate-fade-in">
         <div className="text-center mb-4">
           <div className="w-14 h-14 bg-primary/10 flex items-center justify-center mx-auto mb-3">
             <FileText className="h-7 w-7 text-primary" />

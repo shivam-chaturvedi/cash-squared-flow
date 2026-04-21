@@ -8,10 +8,12 @@ import BulkUploadModal from "@/components/modals/BulkUploadModal";
 import { db, type BusinessSupplierRow } from "@/lib/db";
 import { subscribeDataChanged } from "@/lib/events";
 import PageHeader from "@/components/PageHeader";
+import { useMoney } from "@/hooks/useMoney";
 
 const SuppliersPage = () => {
   const { language, session } = useApp();
   const tr = t[language];
+  const { formatMoneyAbs } = useMoney();
   const userId = session?.user?.id ?? null;
   const [suppliers, setSuppliers] = useState<BusinessSupplierRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,7 +85,7 @@ const SuppliersPage = () => {
                 <p className="text-xs text-muted-foreground">{s.phone || "-"}</p>
               </div>
               <div className="text-right">
-                <p className={`text-sm font-semibold ${s.type === "get" ? "text-money-in" : "text-money-out"}`}>₹{Math.abs(s.balance).toLocaleString()}</p>
+                <p className={`text-sm font-semibold ${s.type === "get" ? "text-money-in" : "text-money-out"}`}>{formatMoneyAbs(s.balance)}</p>
                 <p className="text-[10px] text-muted-foreground">{s.type === "get" ? tr.youllGet : tr.youllGive}</p>
               </div>
             </div>

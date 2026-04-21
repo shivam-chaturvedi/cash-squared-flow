@@ -12,10 +12,14 @@ import { toast } from "@/hooks/use-toast";
 import { db, type BusinessCustomerRow, type BusinessExpenseRow, type BusinessTransactionRow } from "@/lib/db";
 import { subscribeDataChanged } from "@/lib/events";
 import PageHeader from "@/components/PageHeader";
+import { useMoney } from "@/hooks/useMoney";
+import CurrencyToggle from "@/components/CurrencyToggle";
+import SimpleGoogleTranslator from "@/components/SimpleGoogleTranslator";
 
 const BusinessDashboard = () => {
   const { language, userName, session, profile } = useApp();
   const tr = t[language];
+  const { formatMoney } = useMoney();
   const userId = session?.user?.id ?? null;
   const [showTransaction, setShowTransaction] = useState(false);
   const [showCustomer, setShowCustomer] = useState(false);
@@ -111,7 +115,7 @@ const BusinessDashboard = () => {
       scope: "business",
       type: "expense_added",
       title: tr.expenseAdded,
-      description: `${draft.category}: -₹${draft.amount.toLocaleString()}`,
+      description: `${draft.category}: ${formatMoney(-draft.amount)}`,
       actor: userName,
       actor_role: actorRole,
     });
@@ -120,18 +124,26 @@ const BusinessDashboard = () => {
     const watchRoles = profile?.business_watch_roles ?? [];
     const watchPeople = profile?.business_watch_people ?? [];
     const shouldToast = enabled && (watchPeople.includes(userName) || watchRoles.includes(actorRole));
-    if (shouldToast) toast({ title: tr.expenseAdded, description: `${draft.category}: -₹${draft.amount.toLocaleString()}` });
+    if (shouldToast) toast({ title: tr.expenseAdded, description: `${draft.category}: ${formatMoney(-draft.amount)}` });
   };
 
   return (
     <div className="p-4 md:p-6 space-y-6 animate-fade-in">
-      <PageHeader title={tr.dashboard} />
+      <PageHeader
+        title={tr.dashboard}
+        right={(
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <CurrencyToggle compact />
+            <SimpleGoogleTranslator />
+          </div>
+        )}
+      />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard label={tr.todayBalance} value={loading ? "—" : `₹${totals.todayBalance.toLocaleString()}`} />
-        <StatCard label={tr.totalBalance} value={loading ? "—" : `₹${totals.totalBalance.toLocaleString()}`} />
-        <StatCard label={tr.youllGive} value={loading ? "—" : `₹${totals.totalGive.toLocaleString()}`} variant="money-out" icon={<ArrowUpRight className="h-4 w-4 text-money-out" />} />
-        <StatCard label={tr.youllGet} value={loading ? "—" : `₹${totals.totalGet.toLocaleString()}`} variant="money-in" icon={<ArrowDownLeft className="h-4 w-4 text-money-in" />} />
+        <StatCard label={tr.todayBalance} value={loading ? "—" : formatMoney(totals.todayBalance)} />
+        <StatCard label={tr.totalBalance} value={loading ? "—" : formatMoney(totals.totalBalance)} />
+        <StatCard label={tr.youllGive} value={loading ? "—" : formatMoney(totals.totalGive)} variant="money-out" icon={<ArrowUpRight className="h-4 w-4 text-money-out" />} />
+        <StatCard label={tr.youllGet} value={loading ? "—" : formatMoney(totals.totalGet)} variant="money-in" icon={<ArrowDownLeft className="h-4 w-4 text-money-in" />} />
       </div>
 
       <div className="bg-card border border-border p-4">
@@ -141,7 +153,10 @@ const BusinessDashboard = () => {
             <BarChart data={cashFlowData}>
               <XAxis dataKey="day" axisLine={false} tickLine={false} className="text-xs" />
               <YAxis hide />
-              <Tooltip contentStyle={{ border: "1px solid hsl(220, 15%, 90%)", borderRadius: 0, fontSize: 12 }} />
+              <Tooltip
+                formatter={(value: number) => formatMoney(Number(value))}
+                contentStyle={{ border: "1px solid hsl(220, 15%, 90%)", borderRadius: 0, fontSize: 12 }}
+              />
               <Bar dataKey="in" fill="hsl(145, 63%, 42%)" name="Money In" />
               <Bar dataKey="out" fill="hsl(0, 72%, 51%)" name="Money Out" />
             </BarChart>
@@ -149,7 +164,7 @@ const BusinessDashboard = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {[
           { label: tr.addTransaction, icon: Plus, color: "bg-primary text-primary-foreground", onClick: () => setShowTransaction(true) },
           { label: tr.addCustomer, icon: Users, color: "bg-money-in text-money-in-foreground", onClick: () => setShowCustomer(true) },

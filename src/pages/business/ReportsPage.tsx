@@ -7,10 +7,12 @@ import EmptyState from "@/components/EmptyState";
 import { db, type BusinessExpenseRow, type BusinessTransactionRow } from "@/lib/db";
 import { subscribeDataChanged } from "@/lib/events";
 import PageHeader from "@/components/PageHeader";
+import { useMoney } from "@/hooks/useMoney";
 
 const ReportsPage = () => {
   const { language, session } = useApp();
   const tr = t[language];
+  const { formatMoney } = useMoney();
   const userId = session?.user?.id ?? null;
   const [transactions, setTransactions] = useState<BusinessTransactionRow[]>([]);
   const [expenses, setExpenses] = useState<BusinessExpenseRow[]>([]);
@@ -51,12 +53,12 @@ const ReportsPage = () => {
     const expenseTotal = expenses.reduce((s, e) => s + e.amount, 0);
     const netProfit = revenue - expenseTotal;
     return [
-      { label: "Total Revenue", value: `₹${revenue.toLocaleString()}`, variant: "money-in" as const },
-      { label: "Total Expenses", value: `₹${expenseTotal.toLocaleString()}`, variant: "money-out" as const },
-      { label: "Net Profit", value: `₹${netProfit.toLocaleString()}` as const, variant: undefined },
+      { label: "Total Revenue", value: formatMoney(revenue), variant: "money-in" as const },
+      { label: "Total Expenses", value: formatMoney(expenseTotal), variant: "money-out" as const },
+      { label: "Net Profit", value: formatMoney(netProfit) as const, variant: undefined },
       { label: "Transactions", value: `${transactions.length}` as const, variant: undefined },
     ];
-  }, [expenses, transactions]);
+  }, [expenses, formatMoney, transactions]);
 
   const monthlySummary = useMemo(() => {
     const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
@@ -105,14 +107,14 @@ const ReportsPage = () => {
         <h1>Report summary</h1>
         ${summaryStats.map((stat) => `<p><strong>${stat.label}</strong>: ${stat.value}</p>`).join("")}
         <h2>Monthly breakdown</h2>
-        <ul>
-          ${monthlySummary
-            .map(
-              (row) =>
-                `<li>${row.month} ${row.year}: +₹${row.in.toLocaleString()} / -₹${row.out.toLocaleString()}</li>`,
-            )
-            .join("")}
-        </ul>
+	        <ul>
+	          ${monthlySummary
+	            .map(
+	              (row) =>
+	                `<li>${row.month} ${row.year}: ${formatMoney(row.in, { signDisplay: "always" })} / ${formatMoney(-row.out)}</li>`,
+	            )
+	            .join("")}
+	        </ul>
       </body></html>
     `;
     const win = window.open("", "_blank");
@@ -149,22 +151,22 @@ const ReportsPage = () => {
             ))}
           </div>
 
-          <div className="bg-card border border-border p-4 space-y-3">
-            <h3 className="text-sm font-semibold">{tr.monthlySummary}</h3>
-            {monthlySummary.length === 0 ? (
-              <EmptyState title={tr.noData} subtitle={tr.addFirst} />
-            ) : (
-              monthlySummary.map((month) => (
-                <div key={`${month.month}-${month.year}`} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                  <span className="text-sm">{month.month} {month.year}</span>
-                  <div className="flex gap-6 text-sm">
-                    <span className="text-money-in font-medium">+₹{month.in.toLocaleString()}</span>
-                    <span className="text-money-out font-medium">-₹{month.out.toLocaleString()}</span>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
+	          <div className="bg-card border border-border p-4 space-y-3">
+	            <h3 className="text-sm font-semibold">{tr.monthlySummary}</h3>
+	            {monthlySummary.length === 0 ? (
+	              <EmptyState title={tr.noData} subtitle={tr.addFirst} />
+	            ) : (
+	              monthlySummary.map((month) => (
+	                <div key={`${month.month}-${month.year}`} className="flex flex-col gap-2 py-2 border-b border-border last:border-0 sm:flex-row sm:items-center sm:justify-between">
+	                  <span className="text-sm">{month.month} {month.year}</span>
+	                  <div className="flex flex-wrap gap-4 text-sm sm:justify-end">
+	                    <span className="text-money-in font-medium">{formatMoney(month.in, { signDisplay: "always" })}</span>
+	                    <span className="text-money-out font-medium">{formatMoney(-month.out)}</span>
+	                  </div>
+	                </div>
+	              ))
+	            )}
+	          </div>
         </>
       )}
     </div>

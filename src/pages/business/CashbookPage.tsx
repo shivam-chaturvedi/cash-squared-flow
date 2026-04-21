@@ -6,10 +6,12 @@ import EmptyState from "@/components/EmptyState";
 import { db, type BusinessTransactionRow } from "@/lib/db";
 import { subscribeDataChanged } from "@/lib/events";
 import PageHeader from "@/components/PageHeader";
+import { useMoney } from "@/hooks/useMoney";
 
 const CashbookPage = () => {
   const { language, session } = useApp();
   const tr = t[language];
+  const { formatMoney } = useMoney();
   const userId = session?.user?.id ?? null;
   const [transactions, setTransactions] = useState<BusinessTransactionRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,20 +59,20 @@ const CashbookPage = () => {
       <PageHeader title={tr.cashbook} />
 
       {/* Summary */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="bg-money-in-light border border-money-in/20 p-3 text-center">
           <p className="text-xs text-muted-foreground">{tr.moneyIn}</p>
-          <p className="text-lg font-bold text-money-in">₹{totalIn.toLocaleString()}</p>
+          <p className="text-lg font-bold text-money-in">{formatMoney(totalIn)}</p>
         </div>
-        <div className="bg-money-out-light border border-money-out/20 p-3 text-center">
-          <p className="text-xs text-muted-foreground">{tr.moneyOut}</p>
-          <p className="text-lg font-bold text-money-out">₹{totalOut.toLocaleString()}</p>
-        </div>
-        <div className="bg-card border border-border p-3 text-center">
-          <p className="text-xs text-muted-foreground">Net</p>
-          <p className="text-lg font-bold">₹{(totalIn - totalOut).toLocaleString()}</p>
-        </div>
-      </div>
+	        <div className="bg-money-out-light border border-money-out/20 p-3 text-center">
+	          <p className="text-xs text-muted-foreground">{tr.moneyOut}</p>
+	          <p className="text-lg font-bold text-money-out">{formatMoney(totalOut)}</p>
+	        </div>
+	        <div className="bg-card border border-border p-3 text-center">
+	          <p className="text-xs text-muted-foreground">Net</p>
+	          <p className="text-lg font-bold">{formatMoney(totalIn - totalOut)}</p>
+	        </div>
+	      </div>
 
       {/* Filter tabs */}
       <div className="flex flex-wrap gap-2">
@@ -129,13 +131,13 @@ const CashbookPage = () => {
                   <p className="text-sm font-medium truncate">{tx.description}</p>
                   <p className="text-xs text-muted-foreground">{date} • {time}</p>
                 </div>
-                <p className={`text-sm font-semibold ${tx.type === "in" ? "text-money-in" : "text-money-out"}`}>
-                  {tx.type === "in" ? "+" : "-"}₹{tx.amount.toLocaleString()}
-                </p>
-              </div>
-            );
-          })
-        )}
+	                <p className={`text-sm font-semibold ${tx.type === "in" ? "text-money-in" : "text-money-out"}`}>
+	                  {formatMoney(tx.type === "in" ? tx.amount : -tx.amount, { signDisplay: "always" })}
+	                </p>
+	              </div>
+	            );
+	          })
+	        )}
       </div>
     </div>
   );

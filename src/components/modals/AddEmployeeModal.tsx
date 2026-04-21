@@ -3,6 +3,7 @@ import { useApp } from "@/contexts/AppContext";
 import { t } from "@/lib/translations";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { db, type BusinessEmployeeRow } from "@/lib/db";
+import { useMoney } from "@/hooks/useMoney";
 
 interface Props {
   open: boolean;
@@ -14,6 +15,7 @@ interface Props {
 const AddEmployeeModal = ({ open, onClose, userId, onAdded }: Props) => {
   const { language } = useApp();
   const tr = t[language];
+  const { currencySymbol } = useMoney();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("");
@@ -71,13 +73,13 @@ const AddEmployeeModal = ({ open, onClose, userId, onAdded }: Props) => {
             onChange={(e) => setRole(e.target.value)}
             className="w-full border border-input bg-background px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
-          <input
-            type="number"
-            placeholder="Salary (₹)"
-            value={salary}
-            onChange={(e) => setSalary(e.target.value)}
-            className="w-full border border-input bg-background px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-          />
+	          <input
+	            type="number"
+	            placeholder={`Salary (${currencySymbol})`}
+	            value={salary}
+	            onChange={(e) => setSalary(e.target.value)}
+	            className="w-full border border-input bg-background px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+	          />
           <button disabled={saving} type="submit" className="w-full bg-primary text-primary-foreground py-2.5 text-sm font-medium hover:opacity-90 disabled:opacity-60">
             {saving ? "Saving…" : tr.addEmployee}
           </button>

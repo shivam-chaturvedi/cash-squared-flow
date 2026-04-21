@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { t } from "@/lib/translations";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { useMoney } from "@/hooks/useMoney";
 
 export type ExpenseDraft = {
   amount: number;
@@ -23,6 +24,7 @@ const personalCategories = ["Food", "Rent", "Travel", "Bills", "Shopping", "Ente
 const AddExpenseModal = ({ open, onClose, type = "business", onAddExpense }: Props) => {
   const { language } = useApp();
   const tr = t[language];
+  const { currencySymbol } = useMoney();
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("");
   const [desc, setDesc] = useState("");
@@ -51,7 +53,7 @@ const AddExpenseModal = ({ open, onClose, type = "business", onAddExpense }: Pro
           <DialogDescription>Record a new expense</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <input type="number" placeholder="Amount (₹)" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full border border-input bg-background px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring" required />
+          <input type="number" placeholder={`Amount (${currencySymbol})`} value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full border border-input bg-background px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring" required />
           <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full border border-input bg-background px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring" required>
             <option value="">Select Category</option>
             {categories.map((c) => <option key={c} value={c}>{c}</option>)}

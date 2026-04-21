@@ -7,12 +7,14 @@ import { db, type PersonalBudgetRow, type PersonalExpenseRow } from "@/lib/db";
 import { subscribeDataChanged } from "@/lib/events";
 import PageHeader from "@/components/PageHeader";
 import { Plus } from "lucide-react";
+import { useMoney } from "@/hooks/useMoney";
 
 type ModalMode = "add" | "edit";
 
 const BudgetPage = () => {
   const { language, session } = useApp();
   const tr = t[language];
+  const { formatMoney } = useMoney();
   const userId = session?.user?.id ?? null;
   const [budgets, setBudgets] = useState<PersonalBudgetRow[]>([]);
   const [expenses, setExpenses] = useState<PersonalExpenseRow[]>([]);
@@ -146,21 +148,21 @@ const BudgetPage = () => {
       />
 
       {/* Overall */}
-      <div className="bg-card border border-border p-4">
-        <div className="flex justify-between text-sm mb-2">
-          <span className="text-muted-foreground">{tr.monthlyBudget}</span>
-          <span className="font-semibold">₹{totalSpent.toLocaleString()} / ₹{totalLimit.toLocaleString()}</span>
-        </div>
+	      <div className="bg-card border border-border p-4">
+	        <div className="flex justify-between text-sm mb-2">
+	          <span className="text-muted-foreground">{tr.monthlyBudget}</span>
+	          <span className="font-semibold">{formatMoney(totalSpent)} / {formatMoney(totalLimit)}</span>
+	        </div>
         <div className="w-full h-3 bg-muted">
           <div
             className="h-full bg-primary transition-all"
             style={{ width: `${Math.min((totalSpent / totalLimit) * 100, 100)}%` }}
           />
         </div>
-        <p className="text-xs text-muted-foreground mt-1">
-          {tr.remaining}: ₹{(totalLimit - totalSpent).toLocaleString()}
-        </p>
-      </div>
+	        <p className="text-xs text-muted-foreground mt-1">
+	          {tr.remaining}: {formatMoney(totalLimit - totalSpent)}
+	        </p>
+	      </div>
 
       {/* Per category */}
       <div className="space-y-3">
@@ -173,12 +175,12 @@ const BudgetPage = () => {
           const over = pct >= 100;
           return (
             <div key={b.category} className="bg-card border border-border p-4 flex flex-col gap-3">
-              <div className="flex justify-between text-sm mb-2">
-                <span className="font-medium">{b.category}</span>
-                <span className={`font-semibold ${over ? "text-money-out" : ""}`}>
-                  ₹{b.spent.toLocaleString()} / ₹{b.limit.toLocaleString()}
-                </span>
-              </div>
+	              <div className="flex justify-between text-sm mb-2">
+	                <span className="font-medium">{b.category}</span>
+	                <span className={`font-semibold ${over ? "text-money-out" : ""}`}>
+	                  {formatMoney(b.spent)} / {formatMoney(b.limit)}
+	                </span>
+	              </div>
               <div className="w-full h-2 bg-muted">
                 <div
                   className={`h-full transition-all ${over ? "bg-money-out" : "bg-money-in"}`}

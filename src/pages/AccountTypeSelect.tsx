@@ -3,7 +3,6 @@ import { useApp, AppMode } from "@/contexts/AppContext";
 import { t } from "@/lib/translations";
 import { User, Briefcase, Check } from "lucide-react";
 import TopAccent from "@/components/TopAccent";
-import LanguageToggle from "@/components/LanguageToggle";
 
 const AccountTypeSelect = () => {
   const { language, setMode, setAccountTypes, setAuthState, saveProfile } = useApp();
@@ -39,9 +38,6 @@ const AccountTypeSelect = () => {
       <TopAccent />
       <div className="flex-1 flex items-center justify-center p-4">
         <div className="w-full max-w-md animate-fade-in">
-          <div className="flex justify-end mb-3">
-            <LanguageToggle compact />
-          </div>
         <h1 className="text-xl font-bold text-center mb-2">{tr.selectAccountType}</h1>
         <p className="text-muted-foreground text-sm text-center mb-1">{tr.selectMultipleHint}</p>
         <p className="text-muted-foreground text-xs text-center mb-6">{tr.canChangeLater}</p>

@@ -6,7 +6,6 @@ import type { LucideIcon } from "lucide-react";
 import { addNotification, subscribeNotifications } from "@/lib/notifications";
 import { db, type AppNotificationRow, type BusinessEmployeeRow } from "@/lib/db";
 import PageHeader from "@/components/PageHeader";
-import SimpleGoogleTranslator from "@/components/SimpleGoogleTranslator";
 
 type SettingsSection = "account" | "language" | "notifications" | "security";
 type NotificationKey = "activity" | "insights" | "security";
@@ -184,12 +183,6 @@ const SettingsPage = () => {
   };
 
   const activeInfo = menuItems.find((item) => item.id === activeSection);
-
-  const handleTranslateRefresh = () => {
-    if (typeof window !== "undefined") {
-      window.location.reload();
-    }
-  };
 
   const renderSectionDetail = () => {
     switch (activeSection) {
@@ -397,16 +390,11 @@ const SettingsPage = () => {
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">{tr.languageSettingDesc}</p>
             <div className="rounded-xl border border-border bg-muted/40 p-4">
-              <SimpleGoogleTranslator />
-              <p className="mt-3 text-xs text-muted-foreground">{tr.googleTranslateHelper}</p>
+              <p className="text-sm font-semibold">{tr.googleTranslateLabel}</p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Change language from the Dashboard header (the preference is saved and applied across the app).
+              </p>
             </div>
-            <button
-              type="button"
-              onClick={handleTranslateRefresh}
-              className="mt-3 rounded-2xl border border-dashed border-border px-4 py-2 text-sm font-semibold text-muted-foreground transition hover:border-primary/80"
-            >
-              {tr.googleTranslateRefresh}
-            </button>
           </div>
         );
     }

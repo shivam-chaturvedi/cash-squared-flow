@@ -29,7 +29,15 @@ import NotFound from "@/pages/NotFound";
 const queryClient = new QueryClient();
 
 const AppContent = () => {
-  const { authState, mode } = useApp();
+  const { authState, mode, booting } = useApp();
+
+  if (booting) {
+    return (
+      <div className="min-h-[100dvh] flex items-center justify-center bg-background text-muted-foreground">
+        Loading…
+      </div>
+    );
+  }
 
   if (authState === "login" || authState === "signup") return <LoginPage />;
   if (authState === "signup-otp") return <OtpPage />;

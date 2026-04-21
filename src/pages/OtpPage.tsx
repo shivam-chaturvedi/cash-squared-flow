@@ -4,7 +4,6 @@ import { supabase } from "@/lib/supabaseClient";
 import { t } from "@/lib/translations";
 import { ShieldCheck } from "lucide-react";
 import TopAccent from "@/components/TopAccent";
-import LanguageToggle from "@/components/LanguageToggle";
 
 const OtpPage = () => {
   const { language, setAuthState, userEmail } = useApp();
@@ -57,9 +56,6 @@ const OtpPage = () => {
       <TopAccent />
       <div className="flex-1 flex items-center justify-center p-4">
         <div className="w-full max-w-sm animate-fade-in text-center">
-          <div className="flex justify-end mb-3">
-            <LanguageToggle compact />
-          </div>
         <div className="w-14 h-14 bg-primary/10 flex items-center justify-center mx-auto mb-4">
           <ShieldCheck className="h-7 w-7 text-primary" />
         </div>

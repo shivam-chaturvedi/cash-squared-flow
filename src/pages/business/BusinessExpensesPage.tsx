@@ -9,10 +9,12 @@ import { toast } from "@/hooks/use-toast";
 import { db, type BusinessExpenseRow } from "@/lib/db";
 import { subscribeDataChanged } from "@/lib/events";
 import PageHeader from "@/components/PageHeader";
+import { useMoney } from "@/hooks/useMoney";
 
 const BusinessExpensesPage = () => {
   const { language, userName, session, profile } = useApp();
   const tr = t[language];
+  const { formatMoney } = useMoney();
   const userId = session?.user?.id ?? null;
   const [showAdd, setShowAdd] = useState(false);
   const [expenses, setExpenses] = useState<BusinessExpenseRow[]>([]);
@@ -68,7 +70,7 @@ const BusinessExpensesPage = () => {
       scope: "business",
       type: "expense_added",
       title: tr.expenseAdded,
-      description: `${draft.category}: -₹${draft.amount.toLocaleString()}`,
+      description: `${draft.category}: ${formatMoney(-draft.amount)}`,
       actor: userName,
       actor_role: actorRole,
     });
@@ -77,7 +79,7 @@ const BusinessExpensesPage = () => {
     const watchRoles = profile?.business_watch_roles ?? [];
     const watchPeople = profile?.business_watch_people ?? [];
     const shouldToast = enabled && (watchPeople.includes(userName) || watchRoles.includes(actorRole));
-    if (shouldToast) toast({ title: tr.expenseAdded, description: `${draft.category}: -₹${draft.amount.toLocaleString()}` });
+    if (shouldToast) toast({ title: tr.expenseAdded, description: `${draft.category}: ${formatMoney(-draft.amount)}` });
   };
 
   return (
@@ -93,7 +95,7 @@ const BusinessExpensesPage = () => {
 
       <div className="bg-money-out-light border border-money-out/20 p-4">
         <p className="text-xs text-muted-foreground">{tr.totalSpending}</p>
-        <p className="text-2xl font-bold text-money-out">₹{total.toLocaleString()}</p>
+        <p className="text-2xl font-bold text-money-out">{formatMoney(total)}</p>
       </div>
 
       <div className="space-y-2">
@@ -103,7 +105,7 @@ const BusinessExpensesPage = () => {
           <div key={cat.name} className="bg-card border border-border p-4 flex items-center gap-3">
             <div className="w-3 h-3 bg-money-out shrink-0" />
             <span className="flex-1 text-sm font-medium">{cat.name}</span>
-            <span className="text-sm font-semibold text-money-out">₹{cat.amount.toLocaleString()}</span>
+            <span className="text-sm font-semibold text-money-out">{formatMoney(cat.amount)}</span>
             <span className="text-xs text-muted-foreground">{Math.round((cat.amount / total) * 100)}%</span>
           </div>
         ))}

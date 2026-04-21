@@ -3,7 +3,6 @@ import { useApp } from "@/contexts/AppContext";
 import { t } from "@/lib/translations";
 import { BookOpen, ChevronRight, ChevronLeft, LayoutDashboard, Users, Receipt, BarChart3, PiggyBank } from "lucide-react";
 import TopAccent from "@/components/TopAccent";
-import LanguageToggle from "@/components/LanguageToggle";
 
 const businessSteps = [
   { icon: LayoutDashboard, title: "Dashboard", desc: "See your daily balance, cash flow charts, and quick action buttons at a glance." },
@@ -46,11 +45,8 @@ const TutorialPage = () => {
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background">
       <TopAccent />
-      <div className="flex-1 flex items-center justify-center p-4">
-        <div className="w-full max-w-md animate-fade-in text-center">
-          <div className="flex justify-end mb-3">
-            <LanguageToggle compact />
-          </div>
+        <div className="flex-1 flex items-center justify-center p-4">
+          <div className="w-full max-w-md animate-fade-in text-center">
         <h1 className="text-xl font-bold mb-6">{tr.tutorialTitle}</h1>
 
         <div className="bg-card border border-border p-6 mb-4">
