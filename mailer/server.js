@@ -19,7 +19,28 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { to, subject, text, html } = req.body;
+    const parseBody = () => {
+      const body = req.body;
+      if (!body) return {};
+      if (typeof body === "object") return body;
+      if (Buffer.isBuffer(body)) {
+        try {
+          return JSON.parse(body.toString("utf8"));
+        } catch {
+          return {};
+        }
+      }
+      if (typeof body === "string") {
+        try {
+          return JSON.parse(body);
+        } catch {
+          return {};
+        }
+      }
+      return {};
+    };
+
+    const { to, subject, text, html } = parseBody();
 
     if (!to || !subject || (!text && !html)) {
       return res

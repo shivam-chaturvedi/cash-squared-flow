@@ -6,6 +6,7 @@ import type { LucideIcon } from "lucide-react";
 import { addNotification, subscribeNotifications } from "@/lib/notifications";
 import { db, type AppNotificationRow, type BusinessEmployeeRow } from "@/lib/db";
 import PageHeader from "@/components/PageHeader";
+import TranslateLanguageSelect from "@/components/TranslateLanguageSelect";
 
 type SettingsSection = "account" | "language" | "notifications" | "security";
 type NotificationKey = "activity" | "insights" | "security";
@@ -391,9 +392,10 @@ const SettingsPage = () => {
             <p className="text-sm text-muted-foreground">{tr.languageSettingDesc}</p>
             <div className="rounded-xl border border-border bg-muted/40 p-4">
               <p className="text-sm font-semibold">{tr.googleTranslateLabel}</p>
-              <p className="mt-2 text-xs text-muted-foreground">
-                Change language from the Dashboard header (the preference is saved and applied across the app).
-              </p>
+              <p className="mt-2 text-xs text-muted-foreground">{tr.googleTranslateHelper}</p>
+              <div className="mt-3">
+                <TranslateLanguageSelect fullWidth />
+              </div>
             </div>
           </div>
         );

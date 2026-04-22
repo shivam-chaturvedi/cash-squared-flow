@@ -2,15 +2,18 @@ import { useState } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { supabase } from "@/lib/supabaseClient";
 import { t } from "@/lib/translations";
+import { requestSignupOtp } from "@/lib/signupOtp";
+import { setPendingSignupOtpEmail } from "@/lib/signupOtpPending";
 import { Mail, Lock, Eye, EyeOff, User, Calendar } from "lucide-react";
 import TopAccent from "@/components/TopAccent";
 
 const LoginPage = () => {
-  const { language, setAuthState, setUserName, setUserAge, setUserEmail } = useApp();
+  const { language, setLanguage, setAuthState, setUserName, setUserAge, setUserEmail } = useApp();
   const tr = t[language];
   const [isSignup, setIsSignup] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const isValidEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 
   // Login fields
   const [email, setEmail] = useState("");
@@ -52,30 +55,32 @@ const LoginPage = () => {
         return;
       }
 
+      if (!isValidEmail(email)) {
+        setStatusMessage("Please enter a valid email address.");
+        return;
+      }
+
       if (password !== confirmPw) {
         setStatusMessage("Passwords do not match.");
         return;
       }
 
       setLoading(true);
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: name.trim(),
-            age: Number(age) || null,
-          },
-        },
-      });
-
-      if (error) {
-        setStatusMessage(error.message);
-      } else {
+      try {
+        await requestSignupOtp({
+          email: email.trim(),
+          password,
+          full_name: name.trim(),
+          age: Number(age) || null,
+        });
         setUserName(name);
         setUserAge(age);
         setUserEmail(email);
+        // Always send the user to OTP entry after signup.
+        setPendingSignupOtpEmail(email.trim());
         setAuthState("signup-otp");
+      } catch (err) {
+        setStatusMessage(err instanceof Error ? err.message : "Unable to send OTP right now.");
       }
       setLoading(false);
     }
@@ -114,6 +119,17 @@ const LoginPage = () => {
         </div>
 
         <div className="bg-card border border-border p-5 shadow-sm">
+          <div className="flex justify-end mb-2">
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value as typeof language)}
+              className="rounded-lg border border-input bg-background px-2 py-1 text-xs text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              aria-label="Language"
+            >
+              <option value="en">English</option>
+              <option value="zh-HK">繁體中文</option>
+            </select>
+          </div>
           {!isSignup ? (
             /* LOGIN FORM */
             <form onSubmit={handleLogin} className="space-y-3">

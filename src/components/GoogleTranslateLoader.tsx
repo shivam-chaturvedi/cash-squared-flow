@@ -26,27 +26,43 @@ const GoogleTranslateLoader = () => {
     );
   };
 
-  useEffect(() => {
-    // Force English on initial load so we don't auto-translate after refresh.
-    forceEnglishOnBoot();
-
-    window.googleTranslateElementInit = initTranslateElement;
-
-    if (window.google?.translate?.TranslateElement) {
-      initTranslateElement();
-      return;
-    }
-
+  const ensureTranslateScript = () => {
+    if (typeof window === "undefined") return;
+    if (window.google?.translate?.TranslateElement) return;
     if (document.getElementById(SCRIPT_ID)) return;
 
     const script = document.createElement("script");
     script.id = SCRIPT_ID;
     script.setAttribute("src", "//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit");
     document.body.appendChild(script);
+  };
+
+  useEffect(() => {
+    // Force English on initial load so we don't auto-translate on first paint.
+    forceEnglishOnBoot();
+
+    window.googleTranslateElementInit = initTranslateElement;
+    if (window.google?.translate?.TranslateElement) {
+      initTranslateElement();
+    }
   }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+
+    // Keep the app clean by default: don't load Google Translate unless the user opts in.
+    if (!translateLang || translateLang === "en") {
+      forceEnglishOnBoot();
+      if (window.google?.translate?.TranslateElement) {
+        applyGoogleTranslateLanguageWithRetry("en", { maxAttempts: 12, intervalMs: 75 });
+      } else {
+        setGoogTransCookie("en");
+      }
+      return;
+    }
+
+    ensureTranslateScript();
+    initTranslateElement();
     setGoogTransCookie(translateLang);
     applyGoogleTranslateLanguageWithRetry(translateLang);
   }, [translateLang]);

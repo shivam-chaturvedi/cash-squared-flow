@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback, Rea
 import { PostgrestError, Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabaseClient";
 import { detectDefaultCurrency, type CurrencyCode } from "@/lib/money";
+import { getPendingSignupOtpEmail } from "@/lib/signupOtpPending";
 
 export type AppMode = "business" | "personal";
 export type Language = "en" | "zh-HK";
@@ -20,7 +21,8 @@ export type Profile = {
   roles: string[];
   invites: string[];
   accepted_terms: boolean;
-  preferred_language: Language;
+  // Stored as a Google Translate language code (e.g. "en", "es", "hi", "zh-CN").
+  preferred_language: string;
   notification_prefs: Record<string, unknown>;
   business_role: string;
   business_watch_roles: string[];
@@ -102,7 +104,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [accountTypes, setAccountTypes] = useState<AppMode[]>(stored?.accountTypes ?? []);
   const [language, setLanguage] = useState<Language>(stored?.language ?? "en");
   const [currency, setCurrency] = useState<CurrencyCode>(stored?.currency ?? detectDefaultCurrency());
-  // Always start in English on refresh; user can switch from the dashboard dropdown.
+  // Google Translate language code; defaults to English until profile loads.
   const [translateLang, setTranslateLang] = useState<string>("en");
   const [authState, setAuthState] = useState<AuthState>("login");
   const [userName, setUserName] = useState(stored?.userName ?? "User");
@@ -113,6 +115,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
+  const profileLoadPromiseRef = useRef<Promise<Profile | null> | null>(null);
 
   const buildProfileFromSession = useMemo(() => {
     return (sessionData: Session | null) => {
@@ -136,7 +139,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         email: user?.email ?? "",
         full_name: fallbackName,
         age: typeof ageFromMetadata === "number" ? ageFromMetadata : null,
-        preferred_language: language,
+        preferred_language: translateLang || "en",
         account_types: accountTypes.length > 0 ? accountTypes : [],
         is_business: accountTypes.includes("business"),
         roles: [],
@@ -148,12 +151,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         business_watch_people: [],
       } satisfies Partial<Profile>;
     };
-  }, [accountTypes, language]);
+  }, [accountTypes, translateLang]);
 
   const saveProfile = useCallback(async (fields: Partial<Profile>, userIdOverride?: string) => {
     const targetUserId = userIdOverride ?? session?.user?.id;
     if (!targetUserId) {
-      return { data: null, error: null };
+      return { data: null, error: { message: "Not authenticated." } as PostgrestError };
     }
 
     const payload: Partial<Profile> = {
@@ -171,7 +174,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       preferred_language:
         typeof fields.preferred_language !== "undefined"
           ? fields.preferred_language
-          : profile?.preferred_language ?? language,
+          : profile?.preferred_language ?? translateLang ?? "en",
       ...fields,
     } as Partial<Profile>;
 
@@ -189,27 +192,23 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       setAccountTypes(Array.isArray(data.account_types) ? data.account_types : []);
       if (data.business_name) setBusinessName(data.business_name);
       if (data.owner_name) setOwnerName(data.owner_name);
-      if (data.preferred_language) setLanguage(data.preferred_language);
+      if (data.preferred_language) setTranslateLang(data.preferred_language);
     }
 
     return { data, error };
-  }, [accountTypes, language, profile, session, userAge, userEmail, userName]);
+  }, [accountTypes, profile, session, translateLang, userAge, userEmail, userName]);
 
   const loadProfile = useCallback(
     async (userId: string, sessionData: Session | null) => {
       if (!userId) return null;
-      if (profileLoading) return profile;
-      setProfileLoading(true);
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("user_id", userId)
-        .maybeSingle();
+      if (profileLoadPromiseRef.current) return profileLoadPromiseRef.current;
 
-      if (error) {
-        setProfileLoading(false);
-        return null;
-      }
+      profileLoadPromiseRef.current = (async () => {
+        setProfileLoading(true);
+        try {
+          const { data, error } = await supabase.from("profiles").select("*").eq("user_id", userId).maybeSingle();
+
+          if (error) return null;
 
       if (data) {
         setProfile(data);
@@ -219,16 +218,21 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         setAccountTypes(Array.isArray(data.account_types) ? data.account_types : []);
         if (data.business_name) setBusinessName(data.business_name);
         if (data.owner_name) setOwnerName(data.owner_name);
-        if (data.preferred_language) setLanguage(data.preferred_language);
-        setProfileLoading(false);
+        if (data.preferred_language) setTranslateLang(data.preferred_language);
         return data;
       }
 
-      const metadataProfile = await saveProfile(buildProfileFromSession(sessionData), userId);
-      setProfileLoading(false);
-      return metadataProfile.data ?? null;
+          const metadataProfile = await saveProfile(buildProfileFromSession(sessionData), userId);
+          return metadataProfile.data ?? null;
+        } finally {
+          setProfileLoading(false);
+          profileLoadPromiseRef.current = null;
+        }
+      })();
+
+      return profileLoadPromiseRef.current;
     },
-    [buildProfileFromSession, profile, profileLoading, saveProfile],
+    [buildProfileFromSession, saveProfile],
   );
 
   const logout = useCallback(async () => {
@@ -302,7 +306,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       if (currentSession) {
         const profileData = await loadProfileRef.current(currentSession.user.id, currentSession);
         lastLoadedUserIdRef.current = currentSession.user.id;
-        setAuthState(getNextAuthState(profileData));
+        // If signup OTP is pending, do not auto-navigate away.
+        setAuthState(getPendingSignupOtpEmail() ? "signup-otp" : getNextAuthState(profileData));
         clearAuthHashFromUrl();
         setBooting(false);
         return;
@@ -318,6 +323,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       if (!mounted) return;
       setSession(currentSession);
       if (currentSession) {
+        if (getPendingSignupOtpEmail()) {
+          setAuthState("signup-otp");
+          setBooting(false);
+          return;
+        }
+
         // Avoid hammering the profiles endpoint on frequent auth events (e.g. token refresh / retries).
         const userId = currentSession.user.id;
         const shouldLoad =

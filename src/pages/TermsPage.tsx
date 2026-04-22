@@ -1,24 +1,55 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { t } from "@/lib/translations";
 import { FileText } from "lucide-react";
 import TopAccent from "@/components/TopAccent";
+import { supabase } from "@/lib/supabaseClient";
 
 const TermsPage = () => {
-  const { language, setAuthState, saveProfile } = useApp();
+  const { language, translateLang, setAuthState, saveProfile, profile, session } = useApp();
   const tr = t[language];
   const [accepted, setAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (profile?.accepted_terms) {
+      setAuthState("authenticated");
+    }
+  }, [profile?.accepted_terms, setAuthState]);
 
   const handleContinue = async () => {
     if (!accepted) return;
+    setErrorMessage(null);
     setLoading(true);
-    await saveProfile({
-      accepted_terms: true,
-      preferred_language: language,
-    });
+    const userIdFromCtx = session?.user?.id ?? null;
+    const userId =
+      userIdFromCtx ||
+      (await supabase.auth.getSession().then((r) => r.data.session?.user?.id ?? null).catch(() => null));
+
+    const { data, error } = await saveProfile(
+      {
+        accepted_terms: true,
+        preferred_language: translateLang || "en",
+      },
+      userId ?? undefined,
+    );
+
+    if (error) {
+      setLoading(false);
+      setErrorMessage(error.message ?? "Unable to save your acceptance right now.");
+      return;
+    }
     setLoading(false);
-    setAuthState("select-type");
+    const next =
+      !data
+        ? "authenticated"
+        : !Array.isArray(data.account_types) || data.account_types.length === 0
+          ? "select-type"
+          : data.account_types.includes("business") && !data.business_name
+            ? "business-setup"
+            : "authenticated";
+    setAuthState(next);
   };
 
   return (
@@ -53,6 +84,7 @@ const TermsPage = () => {
           className="w-full bg-primary text-primary-foreground py-2.5 font-semibold text-base hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed">
           {loading ? "Saving…" : tr.continueBtn}
         </button>
+        {errorMessage && <p className="text-xs text-center text-destructive mt-2">{errorMessage}</p>}
         </div>
       </div>
     </div>

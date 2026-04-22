@@ -4,6 +4,9 @@ import { supabase } from "@/lib/supabaseClient";
 import { t } from "@/lib/translations";
 import { ShieldCheck } from "lucide-react";
 import TopAccent from "@/components/TopAccent";
+import { clearPendingSignupOtpEmail } from "@/lib/signupOtpPending";
+import { clearPendingSignup, clearPendingSignupOtp, getPendingSignup, getPendingSignupOtp } from "@/lib/pendingSignup";
+import { requestSignupOtp } from "@/lib/signupOtp";
 
 const OtpPage = () => {
   const { language, setAuthState, userEmail } = useApp();
@@ -38,16 +41,53 @@ const OtpPage = () => {
     }
 
     setLoading(true);
-    const { error } = await supabase.auth.verifyOtp({
-      email: userEmail,
-      token,
-      type: "signup",
-    });
-    if (error) {
-      setErrorMessage(error.message);
-    } else {
-      setAuthState("signup-terms");
+    const stored = getPendingSignupOtp();
+    if (!stored || stored.expiresAt < Date.now()) {
+      setLoading(false);
+      setErrorMessage("OTP expired. Please resend and try again.");
+      return;
     }
+    if (stored.value !== token) {
+      setLoading(false);
+      setErrorMessage("Invalid OTP. Please try again.");
+      return;
+    }
+
+    const pending = getPendingSignup();
+    if (!pending || !pending.email || !pending.password) {
+      setLoading(false);
+      setErrorMessage("Signup details missing. Please go back and try again.");
+      return;
+    }
+
+    const { data, error } = await supabase.auth.signUp({
+      email: pending.email,
+      password: pending.password,
+      options: {
+        data: {
+          ...(pending.full_name ? { full_name: pending.full_name } : {}),
+          ...(typeof pending.age === "number" ? { age: pending.age } : {}),
+        },
+      },
+    });
+
+    if (error) {
+      setLoading(false);
+      setErrorMessage(error.message);
+      return;
+    }
+
+    // If email confirmations are enabled in Supabase, signUp may not create a session here.
+    if (!data.session) {
+      setLoading(false);
+      setErrorMessage("Signup created, but you are not signed in. Disable Supabase email confirmations to use custom OTP emails.");
+      return;
+    }
+
+    clearPendingSignupOtpEmail();
+    clearPendingSignup();
+    clearPendingSignupOtp();
+    setAuthState("signup-terms");
     setLoading(false);
   };
 
@@ -90,7 +130,33 @@ const OtpPage = () => {
           <p className="text-xs text-center text-destructive mt-2">{errorMessage}</p>
         )}
 
-        <button className="mt-3 text-sm text-primary font-medium">Resend OTP</button>
+        <button
+          className="mt-3 text-sm text-primary font-medium"
+          onClick={async () => {
+            const pending = getPendingSignup();
+            if (!pending) {
+              setErrorMessage("Signup details missing. Please go back and try again.");
+              return;
+            }
+            setErrorMessage(null);
+            setLoading(true);
+            try {
+              await requestSignupOtp({
+                email: pending.email,
+                password: pending.password,
+                full_name: pending.full_name,
+                age: pending.age ?? null,
+              });
+            } catch (err) {
+              setErrorMessage(err instanceof Error ? err.message : "Unable to resend OTP right now.");
+            }
+            setLoading(false);
+          }}
+          disabled={loading}
+          type="button"
+        >
+          Resend OTP
+        </button>
         </div>
       </div>
     </div>

@@ -1,6 +1,5 @@
 export const GOOGLE_TRANSLATE_LANGUAGE_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "en", label: "English" },
-  { value: "zh-CN", label: "Chinese (Simplified)" },
   { value: "zh-TW", label: "Chinese (Traditional)" },
   { value: "af", label: "Afrikaans" },
   { value: "sq", label: "Albanian" },

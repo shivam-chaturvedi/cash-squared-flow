@@ -28,24 +28,7 @@ import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
 
-const AppContent = () => {
-  const { authState, mode, booting } = useApp();
-
-  if (booting) {
-    return (
-      <div className="min-h-[100dvh] flex items-center justify-center bg-background text-muted-foreground">
-        Loading…
-      </div>
-    );
-  }
-
-  if (authState === "login" || authState === "signup") return <LoginPage />;
-  if (authState === "signup-otp") return <OtpPage />;
-  if (authState === "signup-terms") return <TermsPage />;
-  if (authState === "select-type") return <AccountTypeSelect />;
-  if (authState === "business-setup") return <BusinessSetupPage />;
-  if (authState === "tutorial") return <TutorialPage />;
-
+const AuthedApp = ({ mode }: { mode: "business" | "personal" }) => {
   return (
     <BrowserRouter>
       <AppLayout>
@@ -66,6 +49,32 @@ const AppContent = () => {
       </AppLayout>
     </BrowserRouter>
   );
+};
+
+const AppContent = () => {
+  const { authState, mode, booting, profile, session } = useApp();
+
+  if (booting) {
+    return (
+      <div className="min-h-[100dvh] flex items-center justify-center bg-background text-muted-foreground">
+        Loading…
+      </div>
+    );
+  }
+
+  if (authState === "signup-terms" && session && profile?.accepted_terms) {
+    // If the user is already fully signed in, don't get stuck on Terms after refresh.
+    return <AuthedApp mode={mode} />;
+  }
+
+  if (authState === "login" || authState === "signup") return <LoginPage />;
+  if (authState === "signup-otp") return <OtpPage />;
+  if (authState === "signup-terms") return <TermsPage />;
+  if (authState === "select-type") return <AccountTypeSelect />;
+  if (authState === "business-setup") return <BusinessSetupPage />;
+  if (authState === "tutorial") return <TutorialPage />;
+
+  return <AuthedApp mode={mode} />;
 };
 
 const App = () => (
