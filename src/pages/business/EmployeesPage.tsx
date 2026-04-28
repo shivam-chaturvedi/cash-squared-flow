@@ -76,6 +76,8 @@ const EmployeesPage = () => {
     return pages.map((p) => labels[p] ?? p).join(", ");
   };
 
+  const roleLabel = (role: string | null) => (role && role.trim() ? role : "Employee");
+
   return (
     <div className="h-full flex flex-col md:flex-row">
       <div className="flex-1 md:max-w-lg md:border-r border-border flex flex-col">
@@ -113,7 +115,9 @@ const EmployeesPage = () => {
                 <div className="w-9 h-9 bg-primary/10 flex items-center justify-center text-primary font-semibold text-sm shrink-0">{emp.name.charAt(0)}</div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{emp.name}</p>
-                  <p className="text-xs text-muted-foreground">{formatAccessPages(emp.access_pages, emp.role)}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {roleLabel(emp.role)} • {formatAccessPages(emp.access_pages, null)}
+                  </p>
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-semibold">{formatMoney(emp.salary ?? 0)}</p>
@@ -136,9 +140,9 @@ const EmployeesPage = () => {
               <div className="bg-card border border-border p-3">
                 <div className="flex items-center gap-2 mb-1">
                   <Shield className="h-4 w-4 text-primary" />
-                  <span className="text-xs text-muted-foreground">{tr.giveAccessTo}</span>
+                  <span className="text-xs text-muted-foreground">{tr.role}</span>
                 </div>
-                <p className="text-sm font-semibold">{formatAccessPages(selectedEmp.access_pages, selectedEmp.role)}</p>
+                <p className="text-sm font-semibold">{roleLabel(selectedEmp.role)}</p>
               </div>
               <div className="bg-card border border-border p-3">
                 <div className="flex items-center gap-2 mb-1">
@@ -153,6 +157,13 @@ const EmployeesPage = () => {
                   <span className="text-xs text-muted-foreground">{tr.editHistory}</span>
                 </div>
                 <p className="text-sm font-semibold">Last edit: {formatLastEdit(selectedEmp.last_edit_at)}</p>
+              </div>
+              <div className="bg-card border border-border p-3 col-span-2">
+                <div className="flex items-center gap-2 mb-1">
+                  <Shield className="h-4 w-4 text-primary" />
+                  <span className="text-xs text-muted-foreground">{tr.giveAccessTo}</span>
+                </div>
+                <p className="text-sm font-semibold">{formatAccessPages(selectedEmp.access_pages, null)}</p>
               </div>
             </div>
           </div>

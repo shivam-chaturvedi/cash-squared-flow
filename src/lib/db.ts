@@ -25,6 +25,22 @@ const withNumbers = <T extends Record<string, unknown>>(row: T, keys: (keyof T)[
   return next;
 };
 
+const toStringArray = (value: unknown): string[] => {
+  if (Array.isArray(value)) return value.map((v) => String(v).trim()).filter(Boolean);
+  if (typeof value === "string") {
+    const text = value.trim();
+    if (!text) return [];
+    try {
+      const parsed = JSON.parse(text);
+      if (Array.isArray(parsed)) return parsed.map((v) => String(v).trim()).filter(Boolean);
+    } catch {
+      // fall through to comma separated parsing
+    }
+    return text.split(",").map((part) => part.trim()).filter(Boolean);
+  }
+  return [];
+};
+
 export type PersonalExpenseRow = {
   id: string;
   user_id: string;
@@ -358,7 +374,16 @@ export const db = {
       try {
         const { data, error } = await supabase.from("business_employees").select("*").eq("user_id", userId).order("created_at", { ascending: false });
         if (error) return { data: null, error: error.message };
-        return ok((data ?? []) as BusinessEmployeeRow[]);
+        const rows = ((data ?? []) as Record<string, unknown>[]).map((row) => {
+          const normalized = {
+            ...row,
+            role: typeof row.role === "string" && row.role.trim() ? row.role : "Employee",
+            access_pages: toStringArray(row.access_pages),
+            salary: row.salary === null ? null : toNumber(row.salary),
+          };
+          return normalized as unknown as BusinessEmployeeRow;
+        });
+        return ok(rows);
       } catch (e) {
         return fail(e);
       }
@@ -371,6 +396,7 @@ export const db = {
             user_id: input.user_id,
             name: input.name,
             email: input.email,
+            role: "Employee",
             access_pages: input.access_pages,
             salary: typeof input.salary === "number" ? input.salary : null,
             last_edit_at: new Date().toISOString(),

@@ -106,6 +106,7 @@ const OtpPage = () => {
             user_id: pendingInvite.ownerUserId,
             email: pendingInvite.employeeEmail,
             name: pendingInvite.employeeName,
+            role: "Employee",
             access_pages: pendingInvite.accessPages,
             salary: pendingInvite.salary,
             employee_user_id: data.session.user.id,
