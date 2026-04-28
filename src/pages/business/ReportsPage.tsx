@@ -2,6 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { t } from "@/lib/translations";
 import { Download } from "lucide-react";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 import StatCard from "@/components/StatCard";
 import EmptyState from "@/components/EmptyState";
 import { db, type BusinessExpenseRow, type BusinessTransactionRow } from "@/lib/db";
@@ -10,10 +13,10 @@ import PageHeader from "@/components/PageHeader";
 import { useMoney } from "@/hooks/useMoney";
 
 const ReportsPage = () => {
-  const { language, session } = useApp();
+  const { language, session, businessUserId } = useApp();
   const tr = t[language];
   const { formatMoney } = useMoney();
-  const userId = session?.user?.id ?? null;
+  const userId = businessUserId ?? (session?.user?.id ?? null);
   const [transactions, setTransactions] = useState<BusinessTransactionRow[]>([]);
   const [expenses, setExpenses] = useState<BusinessExpenseRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -88,41 +91,66 @@ const ReportsPage = () => {
     return sorted;
   }, [expenses, transactions]);
 
-  const handleDownloadCsv = () => {
-    const headers = ["Metric", "Value"];
-    const rows = summaryStats.map((row) => [row.label, row.value]);
-    const csv = [headers, ...rows].map((row) => row.join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = "report-summary.csv";
-    anchor.click();
-    URL.revokeObjectURL(url);
+  const handleDownloadExcel = () => {
+    const wb = XLSX.utils.book_new();
+    const summaryRows = summaryStats.map((row) => ({ Metric: row.label, Value: row.value }));
+    const monthlyRows = monthlySummary.map((row) => ({
+      Month: `${row.month} ${row.year}`,
+      Revenue: row.in,
+      Expenses: row.out,
+      Net: row.in - row.out,
+    }));
+    const transactionRows = transactions.map((row) => ({
+      Date: new Date(row.occurred_at).toLocaleString(),
+      Type: row.type,
+      Amount: row.amount,
+      Description: row.description,
+      CustomerId: row.customer_id ?? "",
+      SupplierId: row.supplier_id ?? "",
+    }));
+    const expenseRows = expenses.map((row) => ({
+      Date: row.spent_on,
+      Category: row.category,
+      Amount: row.amount,
+      Description: row.description ?? "",
+    }));
+
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summaryRows), "Summary");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(monthlyRows), "Monthly");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(transactionRows), "Transactions");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(expenseRows), "Expenses");
+    XLSX.writeFile(wb, "business-report.xlsx");
   };
 
   const handleDownloadPdf = () => {
-    const html = `
-      <html><body style="font-family: sans-serif; padding:20px;">
-        <h1>Report summary</h1>
-        ${summaryStats.map((stat) => `<p><strong>${stat.label}</strong>: ${stat.value}</p>`).join("")}
-        <h2>Monthly breakdown</h2>
-	        <ul>
-	          ${monthlySummary
-	            .map(
-	              (row) =>
-	                `<li>${row.month} ${row.year}: ${formatMoney(row.in, { signDisplay: "always" })} / ${formatMoney(-row.out)}</li>`,
-	            )
-	            .join("")}
-	        </ul>
-      </body></html>
-    `;
-    const win = window.open("", "_blank");
-    if (!win) return;
-    win.document.write(html);
-    win.document.close();
-    win.focus();
-    win.print();
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text("Business Report", 14, 16);
+
+    autoTable(doc, {
+      startY: 24,
+      head: [["Metric", "Value"]],
+      body: summaryStats.map((stat) => [stat.label, stat.value]),
+      theme: "grid",
+      styles: { fontSize: 10 },
+    });
+
+    autoTable(doc, {
+      startY: (doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY
+        ? ((doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 24) + 8
+        : 60,
+      head: [["Month", "Revenue", "Expenses", "Net"]],
+      body: monthlySummary.map((row) => [
+        `${row.month} ${row.year}`,
+        formatMoney(row.in),
+        formatMoney(-row.out),
+        formatMoney(row.in - row.out),
+      ]),
+      theme: "grid",
+      styles: { fontSize: 9 },
+    });
+
+    doc.save("business-report.pdf");
   };
 
   return (
@@ -134,7 +162,7 @@ const ReportsPage = () => {
             <button onClick={handleDownloadPdf} className="border border-input px-3 py-1.5 text-xs font-medium flex items-center gap-1 hover:bg-accent transition">
               <Download className="h-3 w-3" /> {tr.exportPdf}
             </button>
-            <button onClick={handleDownloadCsv} className="border border-input px-3 py-1.5 text-xs font-medium flex items-center gap-1 hover:bg-accent transition">
+            <button onClick={handleDownloadExcel} className="border border-input px-3 py-1.5 text-xs font-medium flex items-center gap-1 hover:bg-accent transition">
               <Download className="h-3 w-3" /> {tr.exportExcel}
             </button>
           </div>

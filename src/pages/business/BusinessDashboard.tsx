@@ -17,10 +17,10 @@ import CurrencyToggle from "@/components/CurrencyToggle";
 import SimpleGoogleTranslator from "@/components/SimpleGoogleTranslator";
 
 const BusinessDashboard = () => {
-  const { language, userName, session, profile } = useApp();
+  const { language, userName, session, profile, businessUserId } = useApp();
   const tr = t[language];
   const { formatMoney } = useMoney();
-  const userId = session?.user?.id ?? null;
+  const userId = businessUserId ?? (session?.user?.id ?? null);
   const [showTransaction, setShowTransaction] = useState(false);
   const [showCustomer, setShowCustomer] = useState(false);
   const [showExpense, setShowExpense] = useState(false);

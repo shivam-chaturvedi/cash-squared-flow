@@ -13,11 +13,11 @@ import PageHeader from "@/components/PageHeader";
 import { useMoney } from "@/hooks/useMoney";
 
 const CustomersPage = () => {
-  const { language, session } = useApp();
+  const { language, session, businessUserId } = useApp();
   const tr = t[language];
   const { formatMoney, formatMoneyAbs } = useMoney();
   const navigate = useNavigate();
-  const userId = session?.user?.id ?? null;
+  const userId = businessUserId ?? (session?.user?.id ?? null);
   const [customers, setCustomers] = useState<BusinessCustomerRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -214,7 +214,15 @@ const CustomersPage = () => {
           onAdded={() => void loadCustomers()}
         />
       )}
-      <BulkUploadModal open={showBulk} onClose={() => setShowBulk(false)} type="customers" />
+      {userId && (
+        <BulkUploadModal
+          open={showBulk}
+          onClose={() => setShowBulk(false)}
+          type="customers"
+          userId={userId}
+          onUploaded={() => void loadCustomers()}
+        />
+      )}
       {userId && (
         <AddTransactionModal
           open={showTransaction}

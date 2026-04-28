@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { t } from "@/lib/translations";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -34,20 +34,37 @@ const personalNav = [
 ] as const;
 
 const AppLayout = ({ children }: { children: ReactNode }) => {
-  const { mode, setMode, language, userName, userEmail, accountTypes, logout, session } = useApp();
+  const { mode, setMode, language, userName, userEmail, accountTypes, logout, session, businessUserId, employeeAccessPages, isEmployee } = useApp();
   const location = useLocation();
   const navigate = useNavigate();
   const tr = t[language];
-  const navItems = mode === "business" ? businessNav : personalNav;
+  const rawNavItems = mode === "business" ? businessNav : personalNav;
+  const navItems =
+    mode === "business" && employeeAccessPages
+      ? rawNavItems.filter((i) => employeeAccessPages.includes(i.key))
+      : rawNavItems;
   const [showFabModal, setShowFabModal] = useState(false);
   const userId = session?.user?.id ?? null;
+  const dataOwnerId = mode === "business" ? (businessUserId ?? userId) : userId;
 
   const hasBoth = accountTypes.includes("business") && accountTypes.includes("personal");
   const isActive = (path: string) => location.pathname === path;
   const mobileNavItems =
     mode === "business"
-      ? businessNav.filter((i) => ["dashboard", "customers", "expenses", "reports", "settings"].includes(i.key))
+      ? (employeeAccessPages
+        ? businessNav.filter((i) => ["dashboard", "customers", "expenses", "reports", "settings"].includes(i.key) && employeeAccessPages.includes(i.key))
+        : businessNav.filter((i) => ["dashboard", "customers", "expenses", "reports", "settings"].includes(i.key)))
       : personalNav.filter((i) => ["dashboard", "expenses", "budget", "friends", "settings"].includes(i.key));
+
+  // Guard against direct navigation to disallowed pages for employees.
+  useEffect(() => {
+    if (mode !== "business" || !employeeAccessPages) return;
+    const allowedPaths = businessNav.filter((i) => employeeAccessPages.includes(i.key)).map((i) => i.path);
+    if (allowedPaths.length === 0) return;
+    if (!allowedPaths.includes(location.pathname)) {
+      navigate(allowedPaths[0]);
+    }
+  }, [employeeAccessPages, location.pathname, mode, navigate]);
 
   return (
     <div className="h-[100dvh] bg-background flex flex-col overflow-hidden">
@@ -82,7 +99,7 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
           </div>
         </div>
 
-        {hasBoth && (
+        {hasBoth && !isEmployee && (
           <div className="px-3 py-2 border-b border-border">
             <div className="flex bg-muted p-0.5">
               <button onClick={() => { setMode("business"); navigate("/"); }} className={`flex-1 py-1.5 text-xs font-medium transition ${mode === "business" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>{tr.business}</button>
@@ -126,7 +143,7 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
             <img src="/logo.png" alt="Cash Squared Flow" className="w-32 h-auto object-contain" />
           </div>
           <div className="flex items-center gap-2">
-            {hasBoth && (
+        {hasBoth && !isEmployee && (
               <div className="flex bg-muted p-0.5 text-xs">
                 <button onClick={() => { setMode("business"); navigate("/"); }} className={`px-2 py-1 font-medium ${mode === "business" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>Biz</button>
                 <button onClick={() => { setMode("personal"); navigate("/"); }} className={`px-2 py-1 font-medium ${mode === "personal" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>Me</button>
@@ -162,11 +179,11 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
       </div>
 
       {mode === "business" ? (
-        userId ? (
+        dataOwnerId ? (
           <AddTransactionModal
             open={showFabModal}
             onClose={() => setShowFabModal(false)}
-            userId={userId}
+            userId={dataOwnerId}
             onAdded={() => emitDataChanged()}
           />
         ) : null

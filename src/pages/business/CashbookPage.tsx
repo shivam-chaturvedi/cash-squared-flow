@@ -9,10 +9,10 @@ import PageHeader from "@/components/PageHeader";
 import { useMoney } from "@/hooks/useMoney";
 
 const CashbookPage = () => {
-  const { language, session } = useApp();
+  const { language, session, businessUserId } = useApp();
   const tr = t[language];
   const { formatMoney } = useMoney();
-  const userId = session?.user?.id ?? null;
+  const userId = businessUserId ?? (session?.user?.id ?? null);
   const [transactions, setTransactions] = useState<BusinessTransactionRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState<"all" | "in" | "out">("all");

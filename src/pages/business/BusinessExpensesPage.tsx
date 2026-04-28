@@ -12,10 +12,10 @@ import PageHeader from "@/components/PageHeader";
 import { useMoney } from "@/hooks/useMoney";
 
 const BusinessExpensesPage = () => {
-  const { language, userName, session, profile } = useApp();
+  const { language, userName, session, profile, businessUserId } = useApp();
   const tr = t[language];
   const { formatMoney } = useMoney();
-  const userId = session?.user?.id ?? null;
+  const userId = businessUserId ?? (session?.user?.id ?? null);
   const [showAdd, setShowAdd] = useState(false);
   const [expenses, setExpenses] = useState<BusinessExpenseRow[]>([]);
   const [loading, setLoading] = useState(true);

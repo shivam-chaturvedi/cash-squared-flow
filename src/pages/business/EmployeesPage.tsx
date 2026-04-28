@@ -10,10 +10,10 @@ import PageHeader from "@/components/PageHeader";
 import { useMoney } from "@/hooks/useMoney";
 
 const EmployeesPage = () => {
-  const { language, session } = useApp();
+  const { language, session, businessUserId } = useApp();
   const tr = t[language];
   const { formatMoney } = useMoney();
-  const userId = session?.user?.id ?? null;
+  const userId = businessUserId ?? (session?.user?.id ?? null);
   const [employees, setEmployees] = useState<BusinessEmployeeRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -61,6 +61,21 @@ const EmployeesPage = () => {
     return `${days} days ago`;
   };
 
+  const formatAccessPages = (pages: string[] | null, fallback: string | null) => {
+    if (!pages || pages.length === 0) return fallback || "-";
+    const labels: Record<string, string> = {
+      dashboard: "Dashboard",
+      customers: "Customers",
+      suppliers: "Suppliers",
+      employees: "Employees",
+      expenses: "Expenses",
+      cashbook: "Cashbook",
+      reports: "Reports",
+      settings: "Settings",
+    };
+    return pages.map((p) => labels[p] ?? p).join(", ");
+  };
+
   return (
     <div className="h-full flex flex-col md:flex-row">
       <div className="flex-1 md:max-w-lg md:border-r border-border flex flex-col">
@@ -98,7 +113,7 @@ const EmployeesPage = () => {
                 <div className="w-9 h-9 bg-primary/10 flex items-center justify-center text-primary font-semibold text-sm shrink-0">{emp.name.charAt(0)}</div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{emp.name}</p>
-                  <p className="text-xs text-muted-foreground">{emp.role || "-"}</p>
+                  <p className="text-xs text-muted-foreground">{formatAccessPages(emp.access_pages, emp.role)}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-semibold">{formatMoney(emp.salary ?? 0)}</p>
@@ -121,9 +136,9 @@ const EmployeesPage = () => {
               <div className="bg-card border border-border p-3">
                 <div className="flex items-center gap-2 mb-1">
                   <Shield className="h-4 w-4 text-primary" />
-                  <span className="text-xs text-muted-foreground">{tr.role}</span>
+                  <span className="text-xs text-muted-foreground">{tr.giveAccessTo}</span>
                 </div>
-                <p className="text-sm font-semibold">{selectedEmp.role || "-"}</p>
+                <p className="text-sm font-semibold">{formatAccessPages(selectedEmp.access_pages, selectedEmp.role)}</p>
               </div>
               <div className="bg-card border border-border p-3">
                 <div className="flex items-center gap-2 mb-1">

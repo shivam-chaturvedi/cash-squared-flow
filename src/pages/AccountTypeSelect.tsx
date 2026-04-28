@@ -1,14 +1,25 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useApp, AppMode } from "@/contexts/AppContext";
 import { t } from "@/lib/translations";
 import { User, Briefcase, Check } from "lucide-react";
 import TopAccent from "@/components/TopAccent";
 
 const AccountTypeSelect = () => {
-  const { language, setMode, setAccountTypes, setAuthState, saveProfile } = useApp();
+  const { language, isEmployee, profile, setMode, setAccountTypes, setAuthState, saveProfile } = useApp();
   const tr = t[language];
   const [selected, setSelected] = useState<AppMode[]>([]);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!isEmployee && !profile?.employee_of_user_id) return;
+    setAccountTypes(["business"]);
+    setMode("business");
+    void saveProfile({
+      account_types: ["business"],
+      is_business: true,
+    });
+    setAuthState("authenticated");
+  }, [isEmployee, profile?.employee_of_user_id, saveProfile, setAccountTypes, setAuthState, setMode]);
 
   const toggle = (type: AppMode) => {
     setSelected((prev) =>

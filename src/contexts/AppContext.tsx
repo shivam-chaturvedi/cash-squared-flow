@@ -27,6 +27,8 @@ export type Profile = {
   business_role: string;
   business_watch_roles: string[];
   business_watch_people: string[];
+  employee_of_user_id: string | null;
+  employee_access_pages: string[];
   created_at: string;
   updated_at: string;
 };
@@ -60,6 +62,9 @@ interface AppContextType {
   profileLoading: boolean;
   saveProfile: (fields: Partial<Profile>, userId?: string) => Promise<{ data: Profile | null; error: PostgrestError | null }>;
   logout: () => Promise<void>;
+  businessUserId: string | null;
+  employeeAccessPages: string[] | null;
+  isEmployee: boolean;
 }
 
 type StoredState = {
@@ -116,6 +121,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const profileLoadPromiseRef = useRef<Promise<Profile | null> | null>(null);
+  const [businessUserId, setBusinessUserId] = useState<string | null>(null);
+  const [employeeAccessPages, setEmployeeAccessPages] = useState<string[] | null>(null);
 
   const buildProfileFromSession = useMemo(() => {
     return (sessionData: Session | null) => {
@@ -149,6 +156,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         business_role: "Owner",
         business_watch_roles: ["Manager"],
         business_watch_people: [],
+        employee_of_user_id: null,
+        employee_access_pages: [],
       } satisfies Partial<Profile>;
     };
   }, [accountTypes, translateLang]);
@@ -235,6 +244,71 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     [buildProfileFromSession, saveProfile],
   );
 
+  const resolveEmployeeContext = useCallback(async (sessionData: Session | null): Promise<{ isEmployee: boolean }> => {
+    const email = sessionData?.user?.email;
+    const currentUserId = sessionData?.user?.id;
+    if (!email || !currentUserId) {
+      setBusinessUserId(null);
+      setEmployeeAccessPages(null);
+      return { isEmployee: false };
+    }
+
+    try {
+      const { data } = await supabase
+        .from("business_employees")
+        .select("id,user_id,email,access_pages,employee_user_id")
+        .ilike("email", email)
+        .limit(1)
+        .maybeSingle();
+
+      if (!data || !data.user_id) {
+        setBusinessUserId(currentUserId);
+        setEmployeeAccessPages(null);
+        if (profile?.employee_of_user_id || (profile?.employee_access_pages?.length ?? 0) > 0) {
+          void saveProfile({ employee_of_user_id: null, employee_access_pages: [] }, currentUserId);
+        }
+        return { isEmployee: false };
+      }
+
+      const ownerUserId = data.user_id as string;
+      const pages = Array.isArray(data.access_pages) ? (data.access_pages as string[]) : [];
+      const isEmployee = ownerUserId !== currentUserId;
+
+      if (isEmployee) {
+        setBusinessUserId(ownerUserId);
+        setEmployeeAccessPages(pages);
+        setMode("business");
+        setAccountTypes(["business"]);
+        void saveProfile(
+          {
+            employee_of_user_id: ownerUserId,
+            employee_access_pages: pages,
+            account_types: ["business"],
+            business_role: "Employee",
+            roles: ["Employee"],
+          },
+          currentUserId,
+        );
+        if (!data.employee_user_id) {
+          void supabase.from("business_employees").update({ employee_user_id: currentUserId }).eq("id", data.id);
+        }
+        return { isEmployee: true };
+      }
+      {
+        setBusinessUserId(currentUserId);
+        setEmployeeAccessPages(null);
+        if (profile?.employee_of_user_id || (profile?.employee_access_pages?.length ?? 0) > 0) {
+          void saveProfile({ employee_of_user_id: null, employee_access_pages: [] }, currentUserId);
+        }
+        return { isEmployee: false };
+      }
+    } catch {
+      setBusinessUserId(currentUserId);
+      setEmployeeAccessPages(null);
+      return { isEmployee: false };
+    }
+  }, [profile, saveProfile, setAccountTypes, setMode]);
+
   const logout = useCallback(async () => {
     await supabase.auth.signOut();
     setProfile(null);
@@ -248,11 +322,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setCurrency(detectDefaultCurrency());
     setTranslateLang("en");
     setAuthState("login");
+    setBusinessUserId(null);
+    setEmployeeAccessPages(null);
   }, []);
 
-  const getNextAuthState = (profileData: Profile | null): AuthState => {
+  const getNextAuthState = (profileData: Profile | null, isEmployeeUser = false): AuthState => {
     if (!profileData) return "select-type";
     if (!profileData.accepted_terms) return "signup-terms";
+    if (isEmployeeUser || !!profileData.employee_of_user_id) return "authenticated";
     if (!Array.isArray(profileData.account_types) || profileData.account_types.length === 0) return "select-type";
     if (profileData.account_types.includes("business") && !profileData.business_name) return "business-setup";
     return "authenticated";
@@ -305,9 +382,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
       if (currentSession) {
         const profileData = await loadProfileRef.current(currentSession.user.id, currentSession);
+        const employeeContext = await resolveEmployeeContext(currentSession);
         lastLoadedUserIdRef.current = currentSession.user.id;
         // If signup OTP is pending, do not auto-navigate away.
-        setAuthState(getPendingSignupOtpEmail() ? "signup-otp" : getNextAuthState(profileData));
+        setAuthState(getPendingSignupOtpEmail() ? "signup-otp" : getNextAuthState(profileData, employeeContext.isEmployee));
         clearAuthHashFromUrl();
         setBooting(false);
         return;
@@ -338,10 +416,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         if (shouldLoad) {
           void loadProfileRef.current(userId, currentSession).then((profileData) => {
             if (!mounted) return;
-            lastLoadedUserIdRef.current = userId;
-            setAuthState(getNextAuthState(profileData));
-            clearAuthHashFromUrl();
-            setBooting(false);
+            void resolveEmployeeContext(currentSession).then((employeeContext) => {
+              if (!mounted) return;
+              lastLoadedUserIdRef.current = userId;
+              setAuthState(getNextAuthState(profileData, employeeContext.isEmployee));
+              clearAuthHashFromUrl();
+              setBooting(false);
+            });
           });
         }
       } else {
@@ -350,6 +431,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         setUserName("User");
         setUserEmail("");
         setBooting(false);
+        setBusinessUserId(null);
+        setEmployeeAccessPages(null);
       }
     });
 
@@ -389,6 +472,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       profileLoading,
       saveProfile,
       logout,
+      businessUserId: businessUserId ?? (session?.user?.id ?? null),
+      employeeAccessPages,
+      isEmployee: Array.isArray(employeeAccessPages),
     }}>
       {children}
     </AppContext.Provider>

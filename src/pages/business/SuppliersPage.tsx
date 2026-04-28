@@ -11,10 +11,10 @@ import PageHeader from "@/components/PageHeader";
 import { useMoney } from "@/hooks/useMoney";
 
 const SuppliersPage = () => {
-  const { language, session } = useApp();
+  const { language, session, businessUserId } = useApp();
   const tr = t[language];
   const { formatMoneyAbs } = useMoney();
-  const userId = session?.user?.id ?? null;
+  const userId = businessUserId ?? (session?.user?.id ?? null);
   const [suppliers, setSuppliers] = useState<BusinessSupplierRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -101,7 +101,15 @@ const SuppliersPage = () => {
           onAdded={() => void loadSuppliers()}
         />
       )}
-      <BulkUploadModal open={showBulk} onClose={() => setShowBulk(false)} type="suppliers" />
+      {userId && (
+        <BulkUploadModal
+          open={showBulk}
+          onClose={() => setShowBulk(false)}
+          type="suppliers"
+          userId={userId}
+          onUploaded={() => void loadSuppliers()}
+        />
+      )}
     </div>
   );
 };

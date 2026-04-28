@@ -94,6 +94,8 @@ export type BusinessEmployeeRow = {
   name: string;
   email: string;
   role: string | null;
+  access_pages: string[] | null;
+  employee_user_id: string | null;
   salary: number | null;
   last_edit_at: string | null;
   created_at: string;
@@ -134,6 +136,20 @@ export type AppNotificationRow = {
   actor: string | null;
   actor_role: string | null;
   created_at: string;
+};
+
+export type BusinessEmployeeInviteRow = {
+  id: string;
+  owner_user_id: string;
+  employee_name: string;
+  employee_email: string;
+  access_pages: string[];
+  salary: number | string | null;
+  status: "pending" | "accepted" | string;
+  accepted_at: string | null;
+  claimed_user_id: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 export const db = {
@@ -347,7 +363,7 @@ export const db = {
         return fail(e);
       }
     },
-    async addEmployee(input: { user_id: string; name: string; email: string; role?: string; salary?: number }): Promise<DbResult<BusinessEmployeeRow>> {
+    async addEmployee(input: { user_id: string; name: string; email: string; access_pages: string[]; salary?: number }): Promise<DbResult<BusinessEmployeeRow>> {
       try {
         const { data, error } = await supabase
           .from("business_employees")
@@ -355,7 +371,7 @@ export const db = {
             user_id: input.user_id,
             name: input.name,
             email: input.email,
-            role: input.role ?? null,
+            access_pages: input.access_pages,
             salary: typeof input.salary === "number" ? input.salary : null,
             last_edit_at: new Date().toISOString(),
           })
@@ -440,6 +456,63 @@ export const db = {
           .single();
         if (error) return { data: null, error: error.message };
         return ok(withNumbers(data as unknown as Record<string, unknown>, ["amount"]) as unknown as BusinessExpenseRow);
+      } catch (e) {
+        return fail(e);
+      }
+    },
+    async createEmployeeInvite(input: {
+      owner_user_id: string;
+      employee_name: string;
+      employee_email: string;
+      access_pages: string[];
+      salary?: number;
+    }): Promise<DbResult<BusinessEmployeeInviteRow>> {
+      try {
+        const { data, error } = await supabase
+          .from("business_employee_invites")
+          .insert({
+            owner_user_id: input.owner_user_id,
+            employee_name: input.employee_name,
+            employee_email: input.employee_email,
+            access_pages: input.access_pages,
+            salary: typeof input.salary === "number" ? input.salary : null,
+          })
+          .select("*")
+          .single();
+        if (error) return { data: null, error: error.message };
+        return ok(data as BusinessEmployeeInviteRow);
+      } catch (e) {
+        return fail(e);
+      }
+    },
+    async getEmployeeInvite(inviteId: string): Promise<DbResult<BusinessEmployeeInviteRow>> {
+      try {
+        const { data, error } = await supabase
+          .from("business_employee_invites")
+          .select("*")
+          .eq("id", inviteId)
+          .maybeSingle();
+        if (error) return { data: null, error: error.message };
+        if (!data) return { data: null, error: "Invite not found" };
+        return ok(data as BusinessEmployeeInviteRow);
+      } catch (e) {
+        return fail(e);
+      }
+    },
+    async acceptEmployeeInvite(inviteId: string, claimedUserId: string): Promise<DbResult<BusinessEmployeeInviteRow>> {
+      try {
+        const { data, error } = await supabase
+          .from("business_employee_invites")
+          .update({
+            status: "accepted",
+            accepted_at: new Date().toISOString(),
+            claimed_user_id: claimedUserId,
+          })
+          .eq("id", inviteId)
+          .select("*")
+          .single();
+        if (error) return { data: null, error: error.message };
+        return ok(data as BusinessEmployeeInviteRow);
       } catch (e) {
         return fail(e);
       }

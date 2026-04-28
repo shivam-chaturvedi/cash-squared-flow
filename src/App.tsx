@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppProvider, useApp } from "@/contexts/AppContext";
 import LoginPage from "@/pages/LoginPage";
 import OtpPage from "@/pages/OtpPage";
+import InvitePage from "@/pages/InvitePage";
 import TermsPage from "@/pages/TermsPage";
 import AccountTypeSelect from "@/pages/AccountTypeSelect";
 import BusinessSetupPage from "@/pages/BusinessSetupPage";
@@ -34,6 +35,7 @@ const AuthedApp = ({ mode }: { mode: "business" | "personal" }) => {
       <AppLayout>
         <Routes>
           <Route path="/" element={mode === "business" ? <BusinessDashboard /> : <PersonalDashboard />} />
+          <Route path="/invite/:id" element={<InvitePage />} />
           <Route path="/customers" element={<CustomersPage />} />
           <Route path="/suppliers" element={<SuppliersPage />} />
           <Route path="/expenses" element={mode === "business" ? <BusinessExpensesPage /> : <PersonalExpensesPage />} />
@@ -60,6 +62,10 @@ const AppContent = () => {
         Loading…
       </div>
     );
+  }
+
+  if (window.location.pathname.startsWith("/invite/") && authState === "login") {
+    return <InvitePage />;
   }
 
   if (authState === "signup-terms" && session && profile?.accepted_terms) {

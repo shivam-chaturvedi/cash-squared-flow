@@ -6,7 +6,9 @@ type SendEmailPayload = {
 };
 
 export async function sendEmail({ to, subject, text, html }: SendEmailPayload) {
-  const res = await fetch("https://avail-mailer.vercel.app", {
+  const mailerUrl =
+    ((import.meta.env.VITE_API_BASE_URL as string | undefined) || "https://avail-mailer.vercel.app").trim();
+  const res = await fetch(mailerUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

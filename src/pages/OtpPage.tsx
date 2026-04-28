@@ -7,6 +7,7 @@ import TopAccent from "@/components/TopAccent";
 import { clearPendingSignupOtpEmail } from "@/lib/signupOtpPending";
 import { clearPendingSignup, clearPendingSignupOtp, getPendingSignup, getPendingSignupOtp } from "@/lib/pendingSignup";
 import { requestSignupOtp } from "@/lib/signupOtp";
+import { clearPendingInvite, getPendingInvite } from "@/lib/pendingInvite";
 
 const OtpPage = () => {
   const { language, setAuthState, userEmail } = useApp();
@@ -87,6 +88,34 @@ const OtpPage = () => {
     clearPendingSignupOtpEmail();
     clearPendingSignup();
     clearPendingSignupOtp();
+    const pendingInvite = getPendingInvite();
+    if (pendingInvite?.inviteId) {
+      try {
+        await supabase
+          .from("business_employee_invites")
+          .update({
+            status: "accepted",
+            accepted_at: new Date().toISOString(),
+            claimed_user_id: data.session.user.id,
+          })
+          .eq("id", pendingInvite.inviteId);
+
+        await supabase
+          .from("business_employees")
+          .upsert({
+            user_id: pendingInvite.ownerUserId,
+            email: pendingInvite.employeeEmail,
+            name: pendingInvite.employeeName,
+            access_pages: pendingInvite.accessPages,
+            salary: pendingInvite.salary,
+            employee_user_id: data.session.user.id,
+            last_edit_at: new Date().toISOString(),
+          }, { onConflict: "user_id,email" });
+      } catch {
+        // ignore, employee still can be resolved by email later
+      }
+      clearPendingInvite();
+    }
     setAuthState("signup-terms");
     setLoading(false);
   };
@@ -156,6 +185,20 @@ const OtpPage = () => {
           type="button"
         >
           Resend OTP
+        </button>
+
+        <button
+          className="mt-4 w-full border border-input bg-background py-2.5 font-semibold text-base hover:bg-muted transition disabled:opacity-60 disabled:cursor-not-allowed"
+          onClick={() => {
+            clearPendingSignupOtpEmail();
+            clearPendingSignup();
+            clearPendingSignupOtp();
+            setAuthState("login");
+          }}
+          disabled={loading}
+          type="button"
+        >
+          {tr.otpBackHome}
         </button>
         </div>
       </div>

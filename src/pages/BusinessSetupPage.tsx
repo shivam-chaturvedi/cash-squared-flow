@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { t } from "@/lib/translations";
 import { Building2, UserCircle, Mail, Plus, X } from "lucide-react";
@@ -14,11 +14,18 @@ const BusinessSetupPage = () => {
     setOwnerName,
     saveProfile,
     accountTypes,
+    isEmployee,
+    profile,
   } = useApp();
   const tr = t[language];
   const [invites, setInvites] = useState<string[]>([]);
   const [inviteEmail, setInviteEmail] = useState("");
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!isEmployee && !profile?.employee_of_user_id) return;
+    setAuthState("authenticated");
+  }, [isEmployee, profile?.employee_of_user_id, setAuthState]);
 
   const addInvite = () => {
     if (inviteEmail.trim() && !invites.includes(inviteEmail.trim())) {

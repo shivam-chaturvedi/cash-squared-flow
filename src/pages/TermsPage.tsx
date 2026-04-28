@@ -41,9 +41,12 @@ const TermsPage = () => {
       return;
     }
     setLoading(false);
+    const isEmployeeUser = !!data?.employee_of_user_id;
     const next =
       !data
         ? "authenticated"
+        : isEmployeeUser
+          ? "authenticated"
         : !Array.isArray(data.account_types) || data.account_types.length === 0
           ? "select-type"
           : data.account_types.includes("business") && !data.business_name

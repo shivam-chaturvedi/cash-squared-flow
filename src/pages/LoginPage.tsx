@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { supabase } from "@/lib/supabaseClient";
 import { t } from "@/lib/translations";
@@ -6,11 +6,12 @@ import { requestSignupOtp } from "@/lib/signupOtp";
 import { setPendingSignupOtpEmail } from "@/lib/signupOtpPending";
 import { Mail, Lock, Eye, EyeOff, User, Calendar } from "lucide-react";
 import TopAccent from "@/components/TopAccent";
+import { getPendingInvite } from "@/lib/pendingInvite";
 
 const LoginPage = () => {
-  const { language, setLanguage, setAuthState, setUserName, setUserAge, setUserEmail } = useApp();
+  const { language, setLanguage, authState, setAuthState, setUserName, setUserAge, setUserEmail } = useApp();
   const tr = t[language];
-  const [isSignup, setIsSignup] = useState(false);
+  const [isSignup, setIsSignup] = useState(authState === "signup");
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const isValidEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
@@ -25,6 +26,23 @@ const LoginPage = () => {
   const [name, setName] = useState("");
   const [age, setAge] = useState("");
   const [confirmPw, setConfirmPw] = useState("");
+
+  useEffect(() => {
+    setIsSignup(authState === "signup");
+  }, [authState]);
+
+  useEffect(() => {
+    const invite = getPendingInvite();
+    if (!invite) return;
+    setIsSignup(true);
+    setSignupStep(1);
+    if (invite.employeeName) setName(invite.employeeName);
+    if (invite.employeeEmail) setEmail(invite.employeeEmail);
+    setUserName(invite.employeeName || "User");
+    setUserEmail(invite.employeeEmail || "");
+    setAuthState("signup");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -230,9 +248,9 @@ const LoginPage = () => {
 
         <p className="text-center text-base text-muted-foreground mt-4">
           {isSignup ? (
-            <>Already have an account? <button onClick={() => { setIsSignup(false); setSignupStep(1); setStatusMessage(null); }} className="text-primary font-semibold">{tr.login}</button></>
+            <>Already have an account? <button onClick={() => { setIsSignup(false); setSignupStep(1); setStatusMessage(null); setAuthState("login"); }} className="text-primary font-semibold">{tr.login}</button></>
           ) : (
-            <>Don't have an account? <button onClick={() => { setIsSignup(true); setStatusMessage(null); }} className="text-primary font-semibold">{tr.signup}</button></>
+            <>Don't have an account? <button onClick={() => { setIsSignup(true); setStatusMessage(null); setAuthState("signup"); }} className="text-primary font-semibold">{tr.signup}</button></>
           )}
         </p>
       </div>
