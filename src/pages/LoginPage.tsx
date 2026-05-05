@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useApp } from "@/contexts/AppContext";
 import { supabase } from "@/lib/supabaseClient";
 import { t } from "@/lib/translations";
@@ -8,10 +9,11 @@ import { Mail, Lock, Eye, EyeOff, User, Calendar } from "lucide-react";
 import TopAccent from "@/components/TopAccent";
 import { getPendingInvite } from "@/lib/pendingInvite";
 
-const LoginPage = () => {
+const LoginPage = ({ initialIsSignup = false }: { initialIsSignup?: boolean }) => {
   const { language, setLanguage, authState, setAuthState, setUserName, setUserAge, setUserEmail } = useApp();
+  const navigate = useNavigate();
   const tr = t[language];
-  const [isSignup, setIsSignup] = useState(authState === "signup");
+  const [isSignup, setIsSignup] = useState(initialIsSignup || authState === "signup");
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const isValidEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
@@ -128,14 +130,21 @@ const LoginPage = () => {
       <TopAccent />
       <div className="flex-1 flex items-center justify-center p-4">
       <div className="w-full max-w-md animate-fade-in">
-        {/* Logo & Brand */}
+        {/* Logo & Brand — click to return to landing page */}
         <div className="mb-6">
           <div className="text-center">
-          <img
-            src="/logo.png"
-            alt="Cash Squared Flow"
-            className="w-80 h-auto mx-auto mb-2 object-contain border-2 border-[#F04507] rounded-xl bg-white/40"
-          />
+          <button
+            type="button"
+            onClick={() => { setAuthState("login"); navigate("/"); }}
+            className="inline-block focus:outline-none"
+            aria-label="Back to home"
+          >
+            <img
+              src="/logo.png"
+              alt="Cash Squared Flow"
+              className="w-80 h-auto mx-auto mb-2 object-contain border-2 border-[#F04507] rounded-xl bg-white/40 hover:opacity-80 transition-opacity cursor-pointer"
+            />
+          </button>
           <p className="text-sm mt-0.5 text-[#F01707]">{tr.slogan}</p>
           </div>
         </div>
@@ -254,9 +263,19 @@ const LoginPage = () => {
 
         <p className="text-center text-base text-muted-foreground mt-4">
           {isSignup ? (
-            <>Already have an account? <button onClick={() => { setIsSignup(false); setSignupStep(1); setStatusMessage(null); setAuthState("login"); }} className="text-primary font-semibold">{tr.login}</button></>
+            <>Already have an account?{" "}
+              <button
+                onClick={() => { setIsSignup(false); setSignupStep(1); setStatusMessage(null); setAuthState("login"); navigate("/login"); }}
+                className="text-primary font-semibold"
+              >{tr.login}</button>
+            </>
           ) : (
-            <>Don't have an account? <button onClick={() => { setIsSignup(true); setStatusMessage(null); setAuthState("signup"); }} className="text-primary font-semibold">{tr.signup}</button></>
+            <>Don't have an account?{" "}
+              <button
+                onClick={() => { setIsSignup(true); setStatusMessage(null); setAuthState("signup"); navigate("/signup"); }}
+                className="text-primary font-semibold"
+              >{tr.signup}</button>
+            </>
           )}
         </p>
       </div>
