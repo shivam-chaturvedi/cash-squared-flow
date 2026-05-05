@@ -11,7 +11,8 @@ const FeedbackWidget = () => {
   const { session } = useApp();
   const location = useLocation();
   const userId = session?.user?.id ?? null;
-
+ 
+  
   const [open, setOpen] = useState(false);
   const [rating, setRating] = useState<number>(0);
   const [message, setMessage] = useState("");
