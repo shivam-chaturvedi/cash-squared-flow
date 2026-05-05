@@ -12,6 +12,8 @@ import TopAccent from "@/components/TopAccent";
 import { db } from "@/lib/db";
 import { emitDataChanged } from "@/lib/events";
 import GoogleTranslateLoader from "@/components/GoogleTranslateLoader";
+import FeedbackWidget from "@/components/FeedbackWidget";
+import AnalyticsTracker from "@/components/AnalyticsTracker";
 
 const businessNav = [
   { key: "dashboard", icon: LayoutDashboard, path: "/" },
@@ -69,13 +71,18 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
   return (
     <div className="h-[100dvh] bg-background flex flex-col overflow-hidden">
       <TopAccent />
+      <AnalyticsTracker />
       <GoogleTranslateLoader />
       <div className="flex flex-1 min-h-0">
         {/* Desktop Sidebar */}
         <aside className="hidden md:flex flex-col w-56 bg-card border-r border-border shrink-0">
         <div className="p-3 border-b border-border">
           <div className="flex items-center gap-2">
-            <img src="/logo.png" alt="Cash Squared Flow" className="w-36 h-auto object-contain" />
+            <img
+              src="/logo.png"
+              alt="Cash Squared Flow"
+              className="w-52 h-auto object-contain border-2 border-[#F04507] rounded-xl bg-white/40"
+            />
           </div>
         </div>
 
@@ -140,7 +147,11 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
       <div className="flex-1 flex flex-col min-w-0">
         <header className="md:hidden flex items-center justify-between px-4 py-2 bg-card border-b border-border">
           <div className="flex items-center gap-2">
-            <img src="/logo.png" alt="Cash Squared Flow" className="w-32 h-auto object-contain" />
+            <img
+              src="/logo.png"
+              alt="Cash Squared Flow"
+              className="w-48 h-auto object-contain border-2 border-[#F04507] rounded-xl bg-white/40"
+            />
           </div>
           <div className="flex items-center gap-2">
         {hasBoth && !isEmployee && (
@@ -159,10 +170,17 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
           {children}
         </main>
 
-        {/* FAB */}
-        <button onClick={() => setShowFabModal(true)} className="fixed bottom-20 right-4 md:bottom-6 md:right-6 w-12 h-12 bg-primary text-primary-foreground shadow-lg flex items-center justify-center hover:opacity-90 transition z-50">
-          <Plus className="h-5 w-5" />
-        </button>
+        <div className="fixed bottom-20 right-4 md:bottom-6 md:right-6 flex flex-col items-end gap-3 z-50">
+          <button
+            onClick={() => setShowFabModal(true)}
+            className="w-12 h-12 bg-primary text-primary-foreground shadow-lg flex items-center justify-center hover:opacity-90 transition"
+            aria-label="Add"
+            title="Add"
+          >
+            <Plus className="h-5 w-5" />
+          </button>
+          <FeedbackWidget />
+        </div>
 
         <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-card border-t border-border flex z-40 pb-[env(safe-area-inset-bottom)]">
           {mobileNavItems.map((item) => {

@@ -16,6 +16,17 @@
     <meta name="twitter:title" content="Cash Squared Flow — Plan, Track, Manage Finances">
     <meta name="twitter:description" content="Create financial clarity with planning, tracking, and management tools from Cash Squared Flow.">
     <meta name="twitter:image" content="/logo.png">
+
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-EWFBHGR133"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  // SPA: disable auto page_view so we can send page_view on route changes.
+  gtag('config', 'G-EWFBHGR133', { send_page_view: false });
+</script>
   </head>
   <body>
     <div id="root"></div>

@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode, useMemo, useRef } from "react";
 import { PostgrestError, Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabaseClient";
-import { detectDefaultCurrency, type CurrencyCode } from "@/lib/money";
+import { CURRENCY_OPTIONS, detectDefaultCurrency, type CurrencyCode } from "@/lib/money";
 import { getPendingSignupOtpEmail } from "@/lib/signupOtpPending";
+import { GOOGLE_TRANSLATE_LANGUAGE_OPTIONS } from "@/lib/googleTranslate";
 
 export type AppMode = "business" | "personal";
-export type Language = "en" | "zh-HK";
+export type Language = "en" | "hi" | "zh-CN" | "zh-HK";
 export type AuthState = "login" | "signup" | "signup-otp" | "signup-terms" | "select-type" | "business-setup" | "tutorial" | "authenticated";
 
 export type Profile = {
@@ -104,13 +105,23 @@ export const useApp = () => {
 
 export const AppProvider = ({ children }: { children: ReactNode }) => {
   const stored = readStoredState();
+  const supportedCurrencies = useMemo(() => new Set(CURRENCY_OPTIONS.map((c) => c.code)), []);
+  const supportedTranslateLangs = useMemo(() => new Set(GOOGLE_TRANSLATE_LANGUAGE_OPTIONS.map((l) => l.value)), []);
   const [booting, setBooting] = useState(true);
   const [mode, setMode] = useState<AppMode>(stored?.mode ?? "business");
   const [accountTypes, setAccountTypes] = useState<AppMode[]>(stored?.accountTypes ?? []);
   const [language, setLanguage] = useState<Language>(stored?.language ?? "en");
-  const [currency, setCurrency] = useState<CurrencyCode>(stored?.currency ?? detectDefaultCurrency());
+  const [currency, setCurrency] = useState<CurrencyCode>(() => {
+    const saved = stored?.currency;
+    if (saved && supportedCurrencies.has(saved)) return saved;
+    const detected = detectDefaultCurrency();
+    return supportedCurrencies.has(detected) ? detected : "USD";
+  });
   // Google Translate language code; defaults to English until profile loads.
-  const [translateLang, setTranslateLang] = useState<string>("en");
+  const [translateLang, setTranslateLang] = useState<string>(() => {
+    const saved = stored?.translateLang;
+    return saved && supportedTranslateLangs.has(saved) ? saved : "en";
+  });
   const [authState, setAuthState] = useState<AuthState>("login");
   const [userName, setUserName] = useState(stored?.userName ?? "User");
   const [userAge, setUserAge] = useState(stored?.userAge ?? "");
@@ -201,11 +212,15 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       setAccountTypes(Array.isArray(data.account_types) ? data.account_types : []);
       if (data.business_name) setBusinessName(data.business_name);
       if (data.owner_name) setOwnerName(data.owner_name);
-      if (data.preferred_language) setTranslateLang(data.preferred_language);
+      if (data.preferred_language && supportedTranslateLangs.has(data.preferred_language)) {
+        setTranslateLang(data.preferred_language);
+      } else if (data.preferred_language) {
+        setTranslateLang("en");
+      }
     }
 
     return { data, error };
-  }, [accountTypes, profile, session, translateLang, userAge, userEmail, userName]);
+  }, [accountTypes, profile, session, supportedTranslateLangs, translateLang, userAge, userEmail, userName]);
 
   const loadProfile = useCallback(
     async (userId: string, sessionData: Session | null) => {
@@ -227,7 +242,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         setAccountTypes(Array.isArray(data.account_types) ? data.account_types : []);
         if (data.business_name) setBusinessName(data.business_name);
         if (data.owner_name) setOwnerName(data.owner_name);
-        if (data.preferred_language) setTranslateLang(data.preferred_language);
+        if (data.preferred_language && supportedTranslateLangs.has(data.preferred_language)) {
+          setTranslateLang(data.preferred_language);
+        } else if (data.preferred_language) {
+          setTranslateLang("en");
+        }
         return data;
       }
 
@@ -241,7 +260,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
       return profileLoadPromiseRef.current;
     },
-    [buildProfileFromSession, saveProfile],
+    [buildProfileFromSession, saveProfile, supportedTranslateLangs],
   );
 
   const resolveEmployeeContext = useCallback(async (sessionData: Session | null): Promise<{ isEmployee: boolean }> => {
@@ -328,7 +347,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   const getNextAuthState = (profileData: Profile | null, isEmployeeUser = false): AuthState => {
     if (!profileData) return "select-type";
-    if (!profileData.accepted_terms) return "signup-terms";
+    // Show Terms only during the signup flow; once a user has used the app, never force it again.
+    if (!profileData.accepted_terms) {
+      const shouldPrompt =
+        typeof window !== "undefined" &&
+        (authStateRef.current === "signup-terms" || authStateRef.current === "signup-otp" || authStateRef.current === "signup");
+      return shouldPrompt ? "signup-terms" : "authenticated";
+    }
     if (isEmployeeUser || !!profileData.employee_of_user_id) return "authenticated";
     if (!Array.isArray(profileData.account_types) || profileData.account_types.length === 0) return "select-type";
     if (profileData.account_types.includes("business") && !profileData.business_name) return "business-setup";

@@ -127,16 +127,20 @@ const LoginPage = () => {
     <div className="min-h-[100dvh] flex flex-col bg-background">
       <TopAccent />
       <div className="flex-1 flex items-center justify-center p-4">
-      <div className="w-full max-w-sm animate-fade-in">
+      <div className="w-full max-w-md animate-fade-in">
         {/* Logo & Brand */}
         <div className="mb-6">
           <div className="text-center">
-          <img src="/logo.png" alt="Cash Squared Flow" className="w-52 h-auto mx-auto mb-2 object-contain" />
-          <p className="text-muted-foreground text-sm mt-0.5">{tr.slogan}</p>
+          <img
+            src="/logo.png"
+            alt="Cash Squared Flow"
+            className="w-80 h-auto mx-auto mb-2 object-contain border-2 border-[#F04507] rounded-xl bg-white/40"
+          />
+          <p className="text-sm mt-0.5 text-[#F01707]">{tr.slogan}</p>
           </div>
         </div>
 
-        <div className="bg-card border border-border p-5 shadow-sm">
+        <div className="bg-card border border-border p-6 shadow-sm rounded-2xl">
           <div className="flex justify-end mb-2">
             <select
               value={language}
@@ -144,8 +148,10 @@ const LoginPage = () => {
               className="rounded-lg border border-input bg-background px-2 py-1 text-xs text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               aria-label="Language"
             >
-              <option value="en">English</option>
-              <option value="zh-HK">繁體中文</option>
+              <option value="en">{tr.languageEnglish}</option>
+              <option value="hi">{tr.languageHindi}</option>
+              <option value="zh-CN">{tr.languageMandarin}</option>
+              <option value="zh-HK">{tr.languageCantonese}</option>
             </select>
           </div>
           {!isSignup ? (

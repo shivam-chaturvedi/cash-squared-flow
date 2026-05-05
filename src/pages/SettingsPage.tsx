@@ -1,20 +1,21 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useApp, AppMode } from "@/contexts/AppContext";
 import { t } from "@/lib/translations";
-import { Globe, Bell, Shield, LogOut, User, Briefcase, Check, Plus } from "lucide-react";
+import { Globe, Bell, Shield, LogOut, User, Briefcase, Check, Plus, MessageSquareText } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { subscribeNotifications } from "@/lib/notifications";
 import { db, type AppNotificationRow } from "@/lib/db";
 import PageHeader from "@/components/PageHeader";
 import TranslateLanguageSelect from "@/components/TranslateLanguageSelect";
 
-type SettingsSection = "account" | "language" | "notifications" | "security";
+type SettingsSection = "account" | "language" | "notifications" | "security" | "feedback";
 
 const menuItems: { id: SettingsSection; label: string; description: string; icon: LucideIcon }[] = [
   { id: "account", label: "Account", description: "View and maintain your profile, email, and preferences.", icon: User },
   { id: "language", label: "Language", description: "Translate the UI or load translations on demand with Google Translate.", icon: Globe },
   { id: "notifications", label: "Notifications", description: "Control which alerts reach your inbox and phone.", icon: Bell },
   { id: "security", label: "Security", description: "Review sessions, passwords, and account protection tools.", icon: Shield },
+  { id: "feedback", label: "Feedback", description: "Share feedback or open the feedback form.", icon: MessageSquareText },
 ];
 
 const BUSINESS_ROLES = ["Owner", "Manager", "Accountant", "Staff"] as const;
@@ -254,6 +255,37 @@ const SettingsPage = () => {
             )}
           </div>
         );
+      case "feedback": {
+        const feedbackUrl = (import.meta.env.VITE_FEEDBACK_FORM_URL as string | undefined) || "";
+        return (
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Use the bottom-right star widget anytime, or open the feedback form link below.
+            </p>
+            <div className="rounded-2xl border border-border bg-muted/40 p-4">
+              <p className="text-sm font-semibold">Feedback form</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Set <code className="font-mono">VITE_FEEDBACK_FORM_URL</code> to control where this button points.
+              </p>
+              <div className="mt-3">
+                {feedbackUrl ? (
+                  <a
+                    href={feedbackUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center justify-center rounded-xl border border-border bg-background px-4 py-2 text-sm font-semibold hover:bg-accent transition"
+                  >
+                    Open feedback form
+                  </a>
+                ) : (
+                  <p className="text-xs text-muted-foreground">No feedback form link configured yet.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      }
+      case "language":
       default:
         return (
           <div className="space-y-4">

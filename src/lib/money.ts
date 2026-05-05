@@ -2,45 +2,11 @@ export type CurrencyCode = string;
 
 export const CURRENCY_OPTIONS: Array<{ code: CurrencyCode; label: string }> = [
   { code: "USD", label: "USD — US Dollar" },
-  { code: "INR", label: "INR — Indian Rupee" },
-  { code: "HKD", label: "HKD — Hong Kong Dollar" },
-  { code: "CNY", label: "CNY — Chinese Yuan (RMB)" },
-  { code: "SGD", label: "SGD — Singapore Dollar" },
-  { code: "EUR", label: "EUR — Euro" },
   { code: "GBP", label: "GBP — British Pound" },
-  { code: "JPY", label: "JPY — Japanese Yen" },
-  { code: "AUD", label: "AUD — Australian Dollar" },
-  { code: "CAD", label: "CAD — Canadian Dollar" },
-  { code: "NZD", label: "NZD — New Zealand Dollar" },
-  { code: "CHF", label: "CHF — Swiss Franc" },
-  { code: "SEK", label: "SEK — Swedish Krona" },
-  { code: "NOK", label: "NOK — Norwegian Krone" },
-  { code: "DKK", label: "DKK — Danish Krone" },
-  { code: "KRW", label: "KRW — South Korean Won" },
-  { code: "THB", label: "THB — Thai Baht" },
-  { code: "MYR", label: "MYR — Malaysian Ringgit" },
-  { code: "IDR", label: "IDR — Indonesian Rupiah" },
-  { code: "PHP", label: "PHP — Philippine Peso" },
-  { code: "VND", label: "VND — Vietnamese Dong" },
-  { code: "AED", label: "AED — UAE Dirham" },
-  { code: "SAR", label: "SAR — Saudi Riyal" },
-  { code: "QAR", label: "QAR — Qatari Riyal" },
-  { code: "KWD", label: "KWD — Kuwaiti Dinar" },
-  { code: "BHD", label: "BHD — Bahraini Dinar" },
-  { code: "OMR", label: "OMR — Omani Rial" },
-  { code: "ZAR", label: "ZAR — South African Rand" },
-  { code: "BRL", label: "BRL — Brazilian Real" },
-  { code: "MXN", label: "MXN — Mexican Peso" },
-  { code: "TRY", label: "TRY — Turkish Lira" },
-  { code: "RUB", label: "RUB — Russian Ruble" },
-  { code: "PLN", label: "PLN — Polish Zloty" },
-  { code: "CZK", label: "CZK — Czech Koruna" },
-  { code: "HUF", label: "HUF — Hungarian Forint" },
-  { code: "ILS", label: "ILS — Israeli New Shekel" },
-  { code: "EGP", label: "EGP — Egyptian Pound" },
-  { code: "PKR", label: "PKR — Pakistani Rupee" },
-  { code: "BDT", label: "BDT — Bangladeshi Taka" },
-  { code: "LKR", label: "LKR — Sri Lankan Rupee" },
+  { code: "HKD", label: "HKD — Hong Kong Dollar" },
+  { code: "INR", label: "INR — Indian Rupee" },
+  { code: "SGD", label: "SGD — Singapore Dollar" },
+  { code: "CNY", label: "CNY — Chinese Yuan (RMB)" },
 ];
 
 const REGION_TO_CURRENCY: Record<string, CurrencyCode> = {
@@ -50,12 +16,6 @@ const REGION_TO_CURRENCY: Record<string, CurrencyCode> = {
   SG: "SGD",
   CN: "CNY",
   GB: "GBP",
-  AU: "AUD",
-  CA: "CAD",
-  NZ: "NZD",
-  JP: "JPY",
-  KR: "KRW",
-  EU: "EUR",
 };
 
 const TIMEZONE_TO_CURRENCY: Array<{ contains: string; code: CurrencyCode }> = [
@@ -133,4 +93,3 @@ export const formatMoney = (
     return `${opts.currency} ${amount.toLocaleString()}`;
   }
 };
-
