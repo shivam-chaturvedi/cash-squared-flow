@@ -1,0 +1,116 @@
+@import url('https://fonts.googleapis.com/css2?family=Miranda+Sans:ital,wght@0,400..700;1,400..700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 317 64% 98%;
+    --foreground: 220 20% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 20% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 20% 10%;
+
+    --primary: 220 70% 50%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 15% 95%;
+    --secondary-foreground: 220 20% 20%;
+
+    --muted: 220 15% 95%;
+    --muted-foreground: 220 10% 50%;
+
+    --accent: 220 15% 92%;
+    --accent-foreground: 220 20% 10%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 15% 90%;
+    --input: 220 15% 90%;
+    --ring: 220 70% 50%;
+
+    --radius: 0.125rem;
+
+    --money-in: 145 63% 42%;
+    --money-in-foreground: 0 0% 100%;
+    --money-in-light: 145 60% 95%;
+
+    --money-out: 0 72% 51%;
+    --money-out-foreground: 0 0% 100%;
+    --money-out-light: 0 70% 96%;
+
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 220 10% 40%;
+    --sidebar-primary: 220 70% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 70% 96%;
+    --sidebar-accent-foreground: 220 70% 50%;
+    --sidebar-border: 220 15% 92%;
+    --sidebar-ring: 220 70% 50%;
+
+    --nav-active: 220 70% 96%;
+    --nav-active-foreground: 220 70% 50%;
+    --nav-active-border: 220 70% 50%;
+
+    --success: 145 63% 42%;
+    --warning: 38 92% 50%;
+
+    --primary-light: 220 70% 96%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Miranda Sans', system-ui, sans-serif;
+    font-optical-sizing: auto;
+    font-size: 16px;
+  }
+}
+
+@layer utilities {
+  .money-in {
+    @apply text-[hsl(var(--money-in))];
+  }
+  .money-out {
+    @apply text-[hsl(var(--money-out))];
+  }
+  .bg-money-in {
+    @apply bg-[hsl(var(--money-in))];
+  }
+  .bg-money-out {
+    @apply bg-[hsl(var(--money-out))];
+  }
+  .bg-money-in-light {
+    @apply bg-[hsl(var(--money-in-light))];
+  }
+  .bg-money-out-light {
+    @apply bg-[hsl(var(--money-out-light))];
+  }
+  .bg-primary-light {
+    @apply bg-[hsl(var(--primary-light))];
+  }
+}
+
+/* Google Translate: hide banner/default UI, keep widget mounted (off-screen) for reliability. */
+
+.goog-te-banner-frame {
+  display: none !important;
+}
+
+body {
+  top: 0px !important;
+}
+
+.goog-te-gadget {
+  display: none !important;
+}

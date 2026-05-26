@@ -1,0 +1,16 @@
+{
+  "name": "otp-server",
+  "version": "1.0.0",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.57.2",
+    "dotenv": "^17.2.2",
+    "express": "^4.21.2",
+    "nodemailer": "^6.10.1"
+  }
+}
