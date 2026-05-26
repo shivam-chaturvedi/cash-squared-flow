@@ -4,6 +4,12 @@ import { supabase } from "@/lib/supabaseClient";
 import { CURRENCY_OPTIONS, detectDefaultCurrency, type CurrencyCode } from "@/lib/money";
 import { getPendingSignupOtpEmail } from "@/lib/signupOtpPending";
 import { GOOGLE_TRANSLATE_LANGUAGE_OPTIONS } from "@/lib/googleTranslate";
+import { normalizeAccessPages } from "@/lib/businessAccessPages";
+import {
+  fetchBusinessEmployeeMembership,
+  subscribeEmployeeAccessChanged,
+} from "@/lib/employeeAccessSync";
+import { normalizeEmployeeRole } from "@/lib/employeeRoles";
 
 export type AppMode = "business" | "personal";
 export type Language = "en" | "hi" | "zh-CN" | "zh-HK";
@@ -66,6 +72,7 @@ interface AppContextType {
   businessUserId: string | null;
   employeeAccessPages: string[] | null;
   isEmployee: boolean;
+  displayBusinessName: string | null;
 }
 
 type StoredState = {
@@ -134,6 +141,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const profileLoadPromiseRef = useRef<Promise<Profile | null> | null>(null);
   const [businessUserId, setBusinessUserId] = useState<string | null>(null);
   const [employeeAccessPages, setEmployeeAccessPages] = useState<string[] | null>(null);
+  const [isEmployeeUser, setIsEmployeeUser] = useState(false);
+  const [employerBusinessName, setEmployerBusinessName] = useState<string | null>(null);
 
   const buildProfileFromSession = useMemo(() => {
     return (sessionData: Session | null) => {
@@ -263,70 +272,114 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     [buildProfileFromSession, saveProfile, supportedTranslateLangs],
   );
 
-  const resolveEmployeeContext = useCallback(async (sessionData: Session | null): Promise<{ isEmployee: boolean }> => {
-    const email = sessionData?.user?.email;
-    const currentUserId = sessionData?.user?.id;
-    if (!email || !currentUserId) {
-      setBusinessUserId(null);
-      setEmployeeAccessPages(null);
-      return { isEmployee: false };
-    }
-
+  const loadEmployerBusinessName = useCallback(async (ownerUserId: string) => {
     try {
       const { data } = await supabase
-        .from("business_employees")
-        .select("id,user_id,email,access_pages,employee_user_id")
-        .ilike("email", email)
-        .limit(1)
+        .from("profiles")
+        .select("business_name")
+        .eq("user_id", ownerUserId)
         .maybeSingle();
-
-      if (!data || !data.user_id) {
-        setBusinessUserId(currentUserId);
-        setEmployeeAccessPages(null);
-        if (profile?.employee_of_user_id || (profile?.employee_access_pages?.length ?? 0) > 0) {
-          void saveProfile({ employee_of_user_id: null, employee_access_pages: [] }, currentUserId);
-        }
-        return { isEmployee: false };
-      }
-
-      const ownerUserId = data.user_id as string;
-      const pages = Array.isArray(data.access_pages) ? (data.access_pages as string[]) : [];
-      const isEmployee = ownerUserId !== currentUserId;
-
-      if (isEmployee) {
-        setBusinessUserId(ownerUserId);
-        setEmployeeAccessPages(pages);
-        setMode("business");
-        setAccountTypes(["business"]);
-        void saveProfile(
-          {
-            employee_of_user_id: ownerUserId,
-            employee_access_pages: pages,
-            account_types: ["business"],
-            business_role: "Employee",
-            roles: ["Employee"],
-          },
-          currentUserId,
-        );
-        if (!data.employee_user_id) {
-          void supabase.from("business_employees").update({ employee_user_id: currentUserId }).eq("id", data.id);
-        }
-        return { isEmployee: true };
-      }
-      {
-        setBusinessUserId(currentUserId);
-        setEmployeeAccessPages(null);
-        if (profile?.employee_of_user_id || (profile?.employee_access_pages?.length ?? 0) > 0) {
-          void saveProfile({ employee_of_user_id: null, employee_access_pages: [] }, currentUserId);
-        }
-        return { isEmployee: false };
-      }
+      setEmployerBusinessName(
+        typeof data?.business_name === "string" && data.business_name.trim() ? data.business_name.trim() : null,
+      );
     } catch {
-      setBusinessUserId(currentUserId);
-      setEmployeeAccessPages(null);
-      return { isEmployee: false };
+      setEmployerBusinessName(null);
     }
-  }, [profile, saveProfile, setAccountTypes, setMode]);
+  }, []);
+
+  const resolveEmployeeContext = useCallback(
+    async (sessionData: Session | null, profileHint?: Profile | null): Promise<{ isEmployee: boolean }> => {
+      const email = sessionData?.user?.email;
+      const currentUserId = sessionData?.user?.id;
+      const profileRef = profileHint ?? profile;
+      if (!email || !currentUserId) {
+        setBusinessUserId(null);
+        setEmployeeAccessPages(null);
+        setIsEmployeeUser(false);
+        setEmployerBusinessName(null);
+        return { isEmployee: false };
+      }
+
+      try {
+        const membership = await fetchBusinessEmployeeMembership(
+          currentUserId,
+          email,
+          profileRef?.employee_of_user_id,
+        );
+
+        if (!membership?.user_id) {
+          setBusinessUserId(currentUserId);
+          setEmployeeAccessPages(null);
+          setIsEmployeeUser(false);
+          setEmployerBusinessName(null);
+          if (profileRef?.employee_of_user_id || (profileRef?.employee_access_pages?.length ?? 0) > 0) {
+            void saveProfile({ employee_of_user_id: null, employee_access_pages: [] }, currentUserId);
+          }
+          return { isEmployee: false };
+        }
+
+        const ownerUserId = membership.user_id;
+        const pages = normalizeAccessPages(
+          Array.isArray(membership.access_pages) ? membership.access_pages : [],
+        );
+        const employeeRole = normalizeEmployeeRole(membership.role);
+        const isEmployee = ownerUserId !== currentUserId;
+
+        if (isEmployee) {
+          setBusinessUserId(ownerUserId);
+          setEmployeeAccessPages(pages);
+          setIsEmployeeUser(true);
+          void loadEmployerBusinessName(ownerUserId);
+          setMode("business");
+          setAccountTypes(["business"]);
+
+          const pagesChanged =
+            JSON.stringify(pages) !== JSON.stringify(normalizeAccessPages(profileRef?.employee_access_pages ?? []));
+          const roleChanged = profileRef?.business_role !== employeeRole;
+          if (profileRef?.employee_of_user_id !== ownerUserId || pagesChanged || roleChanged) {
+            const saved = await saveProfile(
+              {
+                employee_of_user_id: ownerUserId,
+                employee_access_pages: pages,
+                account_types: ["business"],
+                business_role: employeeRole,
+                roles: [employeeRole],
+              },
+              currentUserId,
+            );
+            if (saved.data) setProfile(saved.data);
+          }
+
+          if (!membership.employee_user_id) {
+            void supabase
+              .from("business_employees")
+              .update({ employee_user_id: currentUserId })
+              .eq("id", membership.id);
+          }
+          if (pages.length > 0 && JSON.stringify(pages) !== JSON.stringify(membership.access_pages ?? [])) {
+            void supabase.from("business_employees").update({ access_pages: pages }).eq("id", membership.id);
+          }
+          return { isEmployee: true };
+        }
+
+        setBusinessUserId(currentUserId);
+        setEmployeeAccessPages(null);
+        setIsEmployeeUser(false);
+        setEmployerBusinessName(null);
+        if (profileRef?.employee_of_user_id || (profileRef?.employee_access_pages?.length ?? 0) > 0) {
+          void saveProfile({ employee_of_user_id: null, employee_access_pages: [] }, currentUserId);
+        }
+        return { isEmployee: false };
+      } catch {
+        setBusinessUserId(currentUserId);
+        setEmployeeAccessPages(null);
+        setIsEmployeeUser(false);
+        setEmployerBusinessName(null);
+        return { isEmployee: false };
+      }
+    },
+    [loadEmployerBusinessName, profile, saveProfile, setAccountTypes, setMode],
+  );
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut();
@@ -343,9 +396,24 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setAuthState("login");
     setBusinessUserId(null);
     setEmployeeAccessPages(null);
+    setIsEmployeeUser(false);
+    setEmployerBusinessName(null);
   }, []);
 
+  const displayBusinessName = useMemo(() => {
+    if (isEmployeeUser) return employerBusinessName;
+    const fromProfile = profile?.business_name?.trim();
+    if (fromProfile) return fromProfile;
+    const fromState = businessName.trim();
+    return fromState || null;
+  }, [businessName, employerBusinessName, isEmployeeUser, profile?.business_name]);
+
   const getNextAuthState = (profileData: Profile | null, isEmployeeUser = false): AuthState => {
+    const inOnboarding =
+      authStateRef.current === "tutorial" ||
+      authStateRef.current === "business-setup" ||
+      authStateRef.current === "select-type";
+    if (inOnboarding) return authStateRef.current;
     if (!profileData) return "select-type";
     // Show Terms only during the signup flow; once a user has used the app, never force it again.
     if (!profileData.accepted_terms) {
@@ -393,6 +461,59 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     loadProfileRef.current = loadProfile;
   }, [loadProfile]);
 
+  // Keep employee nav/access in sync when employer edits permissions (realtime, focus, poll).
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    if (!isEmployeeUser && !profile?.employee_of_user_id) return;
+
+    const refresh = () => {
+      void resolveEmployeeContext(session, profile);
+    };
+
+    const unsub = subscribeEmployeeAccessChanged(refresh);
+    const onFocus = () => refresh();
+    window.addEventListener("focus", onFocus);
+    const interval = window.setInterval(refresh, 30_000);
+
+    const channel = supabase
+      .channel(`employee-access-${session.user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "business_employees",
+          filter: `employee_user_id=eq.${session.user.id}`,
+        },
+        () => refresh(),
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "profiles",
+          filter: `user_id=eq.${session.user.id}`,
+        },
+        (payload) => {
+          const row = payload.new as { employee_access_pages?: string[] };
+          if (Array.isArray(row.employee_access_pages)) {
+            setEmployeeAccessPages(normalizeAccessPages(row.employee_access_pages));
+          } else {
+            refresh();
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      unsub();
+      window.removeEventListener("focus", onFocus);
+      window.clearInterval(interval);
+      void supabase.removeChannel(channel);
+    };
+  }, [session, isEmployeeUser, profile, profile?.employee_of_user_id, resolveEmployeeContext]);
+
   useEffect(() => {
     let mounted = true;
     const lastLoadedUserIdRef = { current: null as string | null };
@@ -407,7 +528,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
       if (currentSession) {
         const profileData = await loadProfileRef.current(currentSession.user.id, currentSession);
-        const employeeContext = await resolveEmployeeContext(currentSession);
+        const employeeContext = await resolveEmployeeContext(currentSession, profileData);
         lastLoadedUserIdRef.current = currentSession.user.id;
         // If signup OTP is pending, do not auto-navigate away.
         setAuthState(getPendingSignupOtpEmail() ? "signup-otp" : getNextAuthState(profileData, employeeContext.isEmployee));
@@ -441,7 +562,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         if (shouldLoad) {
           void loadProfileRef.current(userId, currentSession).then((profileData) => {
             if (!mounted) return;
-            void resolveEmployeeContext(currentSession).then((employeeContext) => {
+            void resolveEmployeeContext(currentSession, profileData).then((employeeContext) => {
               if (!mounted) return;
               lastLoadedUserIdRef.current = userId;
               setAuthState(getNextAuthState(profileData, employeeContext.isEmployee));
@@ -458,6 +579,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         setBooting(false);
         setBusinessUserId(null);
         setEmployeeAccessPages(null);
+        setIsEmployeeUser(false);
+        setEmployerBusinessName(null);
       }
     });
 
@@ -499,7 +622,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       logout,
       businessUserId: businessUserId ?? (session?.user?.id ?? null),
       employeeAccessPages,
-      isEmployee: Array.isArray(employeeAccessPages),
+      isEmployee: isEmployeeUser,
+      displayBusinessName,
     }}>
       {children}
     </AppContext.Provider>

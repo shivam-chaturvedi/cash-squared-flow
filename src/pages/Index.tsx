@@ -70,7 +70,7 @@ const LandingPage = ({ onLogin, onSignup }: LandingPageProps) => {
           <h1 className="mb-5 text-4xl font-bold leading-tight tracking-tight text-foreground sm:text-5xl md:text-6xl">
             Take Control of Every{" "}
             <span className="bg-gradient-to-r from-primary to-[hsl(145_63%_42%)] bg-clip-text text-transparent">
-              Rupee You Earn
+              dollar You Earn
             </span>
           </h1>
 

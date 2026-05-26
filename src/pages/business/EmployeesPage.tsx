@@ -4,6 +4,9 @@ import { t } from "@/lib/translations";
 import { Search, Plus, Users, DollarSign, Clock, Shield } from "lucide-react";
 import EmptyState from "@/components/EmptyState";
 import AddEmployeeModal from "@/components/modals/AddEmployeeModal";
+import EditEmployeeAccessModal from "@/components/modals/EditEmployeeAccessModal";
+import { formatAccessPageLabels } from "@/lib/businessAccessPages";
+import { normalizeEmployeeRole } from "@/lib/employeeRoles";
 import { db, type BusinessEmployeeRow } from "@/lib/db";
 import { subscribeDataChanged } from "@/lib/events";
 import PageHeader from "@/components/PageHeader";
@@ -19,6 +22,7 @@ const EmployeesPage = () => {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
+  const [editAccessEmp, setEditAccessEmp] = useState<BusinessEmployeeRow | null>(null);
 
   const loadEmployees = async () => {
     if (!userId) {
@@ -61,22 +65,7 @@ const EmployeesPage = () => {
     return `${days} days ago`;
   };
 
-  const formatAccessPages = (pages: string[] | null, fallback: string | null) => {
-    if (!pages || pages.length === 0) return fallback || "-";
-    const labels: Record<string, string> = {
-      dashboard: "Dashboard",
-      customers: "Customers",
-      suppliers: "Suppliers",
-      employees: "Employees",
-      expenses: "Expenses",
-      cashbook: "Cashbook",
-      reports: "Reports",
-      settings: "Settings",
-    };
-    return pages.map((p) => labels[p] ?? p).join(", ");
-  };
-
-  const roleLabel = (role: string | null) => (role && role.trim() ? role : "Employee");
+  const roleLabel = (role: string | null) => normalizeEmployeeRole(role);
 
   return (
     <div className="h-full flex flex-col md:flex-row">
@@ -116,7 +105,7 @@ const EmployeesPage = () => {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{emp.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    {roleLabel(emp.role)} • {formatAccessPages(emp.access_pages, null)}
+                    {roleLabel(emp.role)} • {formatAccessPageLabels(emp.access_pages)}
                   </p>
                 </div>
                 <div className="text-right">
@@ -163,7 +152,14 @@ const EmployeesPage = () => {
                   <Shield className="h-4 w-4 text-primary" />
                   <span className="text-xs text-muted-foreground">{tr.giveAccessTo}</span>
                 </div>
-                <p className="text-sm font-semibold">{formatAccessPages(selectedEmp.access_pages, null)}</p>
+                <p className="text-sm font-semibold">{formatAccessPageLabels(selectedEmp.access_pages)}</p>
+                <button
+                  type="button"
+                  onClick={() => setEditAccessEmp(selectedEmp)}
+                  className="mt-3 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold hover:bg-accent transition"
+                >
+                  {tr.editEmployee}
+                </button>
               </div>
             </div>
           </div>
@@ -183,6 +179,12 @@ const EmployeesPage = () => {
           onAdded={() => void loadEmployees()}
         />
       )}
+      <EditEmployeeAccessModal
+        open={!!editAccessEmp}
+        onClose={() => setEditAccessEmp(null)}
+        employee={editAccessEmp}
+        onSaved={() => void loadEmployees()}
+      />
     </div>
   );
 };

@@ -14,6 +14,7 @@ import { emitDataChanged } from "@/lib/events";
 import GoogleTranslateLoader from "@/components/GoogleTranslateLoader";
 import FeedbackWidget from "@/components/FeedbackWidget";
 import AnalyticsTracker from "@/components/AnalyticsTracker";
+import { BUSINESS_ACCESS_PAGE_LABELS } from "@/lib/businessAccessPages";
 
 const businessNav = [
   { key: "dashboard", icon: LayoutDashboard, path: "/" },
@@ -36,7 +37,7 @@ const personalNav = [
 ] as const;
 
 const AppLayout = ({ children }: { children: ReactNode }) => {
-  const { mode, setMode, language, userName, userEmail, accountTypes, logout, session, businessUserId, employeeAccessPages, isEmployee } = useApp();
+  const { mode, setMode, language, userName, userEmail, accountTypes, logout, session, businessUserId, employeeAccessPages, isEmployee, displayBusinessName } = useApp();
   const location = useLocation();
   const navigate = useNavigate();
   const tr = t[language];
@@ -51,11 +52,13 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
 
   const hasBoth = accountTypes.includes("business") && accountTypes.includes("personal");
   const isActive = (path: string) => location.pathname === path;
+  const businessMobileKeys = ["dashboard", "customers", "suppliers", "employees", "expenses", "reports", "settings"] as const;
   const mobileNavItems =
     mode === "business"
-      ? (employeeAccessPages
-        ? businessNav.filter((i) => ["dashboard", "customers", "expenses", "reports", "settings"].includes(i.key) && employeeAccessPages.includes(i.key))
-        : businessNav.filter((i) => ["dashboard", "customers", "expenses", "reports", "settings"].includes(i.key)))
+      ? businessNav.filter((i) => {
+          if (!businessMobileKeys.includes(i.key as (typeof businessMobileKeys)[number])) return false;
+          return employeeAccessPages ? employeeAccessPages.includes(i.key) : true;
+        })
       : personalNav.filter((i) => ["dashboard", "expenses", "budget", "friends", "settings"].includes(i.key));
 
   // Guard against direct navigation to disallowed pages for employees.
@@ -100,7 +103,11 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
               </p>
               <p className="text-[10px] text-muted-foreground flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-border" />
-                {accountTypes.length > 0 ? accountTypes.join(", ") : tr.noData}
+                {mode === "business" && displayBusinessName
+                  ? displayBusinessName
+                  : accountTypes.length > 0
+                    ? accountTypes.map((t) => (t === "business" ? tr.business : tr.personal)).join(", ")
+                    : tr.noData}
               </p>
             </div>
           </div>
@@ -117,12 +124,15 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
 
         <nav className="flex-1 p-2 space-y-0.5 overflow-auto">
           {navItems.map((item) => {
-            const label = tr[item.key as keyof typeof tr] || item.key;
+            const label =
+              mode === "business"
+                ? BUSINESS_ACCESS_PAGE_LABELS[item.key as keyof typeof BUSINESS_ACCESS_PAGE_LABELS] || item.key
+                : tr[item.key as keyof typeof tr] || item.key;
             const active = isActive(item.path);
             return (
               <button key={item.key} onClick={() => navigate(item.path)} className={`w-full flex items-center gap-3 px-3 py-2 text-sm transition ${active ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium border-l-2 border-primary" : "text-sidebar-foreground hover:bg-accent"}`}>
                 <item.icon className="h-4 w-4 shrink-0" />
-                <span>{label}</span>
+                <span className="notranslate" translate="no">{label}</span>
               </button>
             );
           })}
@@ -146,12 +156,15 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0">
         <header className="md:hidden flex items-center justify-between px-4 py-2 bg-card border-b border-border">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             <img
               src="/logo.png"
               alt="Cash Squared Flow"
-              className="w-48 h-auto object-contain border-2 border-[#F04507] rounded-xl bg-white/40"
+              className="w-36 h-auto object-contain border-2 border-[#F04507] rounded-xl bg-white/40 shrink-0"
             />
+            {mode === "business" && displayBusinessName && (
+              <p className="text-xs font-semibold text-foreground truncate max-w-[140px]">{displayBusinessName}</p>
+            )}
           </div>
           <div className="flex items-center gap-2">
         {hasBoth && !isEmployee && (
@@ -184,12 +197,15 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
 
         <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-card border-t border-border flex z-40 pb-[env(safe-area-inset-bottom)]">
           {mobileNavItems.map((item) => {
-            const label = tr[item.key as keyof typeof tr] || item.key;
+            const label =
+              mode === "business"
+                ? BUSINESS_ACCESS_PAGE_LABELS[item.key as keyof typeof BUSINESS_ACCESS_PAGE_LABELS] || item.key
+                : tr[item.key as keyof typeof tr] || item.key;
             const active = isActive(item.path);
             return (
               <button key={item.key} onClick={() => navigate(item.path)} className={`flex-1 flex flex-col items-center py-2 text-[10px] transition ${active ? "text-primary" : "text-muted-foreground"}`}>
                 <item.icon className="h-5 w-5 mb-0.5" />
-                {label}
+                <span className="notranslate" translate="no">{label}</span>
               </button>
             );
           })}

@@ -8,9 +8,10 @@ import { clearPendingSignupOtpEmail } from "@/lib/signupOtpPending";
 import { clearPendingSignup, clearPendingSignupOtp, getPendingSignup, getPendingSignupOtp } from "@/lib/pendingSignup";
 import { requestSignupOtp } from "@/lib/signupOtp";
 import { clearPendingInvite, getPendingInvite } from "@/lib/pendingInvite";
+import { completeEmployeeInvite, employeeProfileFromInvite } from "@/lib/completeEmployeeInvite";
 
 const OtpPage = () => {
-  const { language, setAuthState, userEmail } = useApp();
+  const { language, setAuthState, userEmail, saveProfile, setMode, setAccountTypes } = useApp();
   const tr = t[language];
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -90,30 +91,11 @@ const OtpPage = () => {
     clearPendingSignupOtp();
     const pendingInvite = getPendingInvite();
     if (pendingInvite?.inviteId) {
-      try {
-        await supabase
-          .from("business_employee_invites")
-          .update({
-            status: "accepted",
-            accepted_at: new Date().toISOString(),
-            claimed_user_id: data.session.user.id,
-          })
-          .eq("id", pendingInvite.inviteId);
-
-        await supabase
-          .from("business_employees")
-          .upsert({
-            user_id: pendingInvite.ownerUserId,
-            email: pendingInvite.employeeEmail,
-            name: pendingInvite.employeeName,
-            role: "Employee",
-            access_pages: pendingInvite.accessPages,
-            salary: pendingInvite.salary,
-            employee_user_id: data.session.user.id,
-            last_edit_at: new Date().toISOString(),
-          }, { onConflict: "user_id,email" });
-      } catch {
-        // ignore, employee still can be resolved by email later
+      const { error: joinError } = await completeEmployeeInvite(pendingInvite, data.session.user.id);
+      if (!joinError) {
+        setAccountTypes(["business"]);
+        setMode("business");
+        await saveProfile(employeeProfileFromInvite(pendingInvite), data.session.user.id);
       }
       clearPendingInvite();
     }

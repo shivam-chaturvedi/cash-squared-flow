@@ -1,10 +1,13 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { t } from "@/lib/translations";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { db, type BusinessEmployeeRow } from "@/lib/db";
 import { useMoney } from "@/hooks/useMoney";
+import { BUSINESS_ACCESS_OPTIONS, normalizeAccessPages } from "@/lib/businessAccessPages";
+import { resolveEmployeeRoleFromForm } from "@/lib/employeeRoles";
+import EmployeeRoleSelect from "@/components/EmployeeRoleSelect";
 
 interface Props {
   open: boolean;
@@ -19,25 +22,15 @@ const AddEmployeeModal = ({ open, onClose, userId, onAdded }: Props) => {
   const { currencySymbol } = useMoney();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [rolePreset, setRolePreset] = useState("Employee");
+  const [customRole, setCustomRole] = useState("");
   const [accessPages, setAccessPages] = useState<string[]>([]);
   const [salary, setSalary] = useState("");
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [sentMessage, setSentMessage] = useState<string | null>(null);
 
-  const accessOptions = useMemo(
-    () => ([
-      { id: "dashboard", label: "Dashboard" },
-      { id: "customers", label: "Customers" },
-      { id: "suppliers", label: "Suppliers" },
-      { id: "employees", label: "Employees" },
-      { id: "expenses", label: "Expenses" },
-      { id: "cashbook", label: "Cashbook" },
-      { id: "reports", label: "Reports" },
-      { id: "settings", label: "Settings" },
-    ]),
-    [],
-  );
+  const accessOptions = BUSINESS_ACCESS_OPTIONS;
 
   const accessLabel = accessPages.length === 0
     ? tr.giveAccessToPlaceholder
@@ -51,15 +44,22 @@ const AddEmployeeModal = ({ open, onClose, userId, onAdded }: Props) => {
       setErrorMessage(tr.giveAccessToRequired);
       return;
     }
+    const resolvedRole = resolveEmployeeRoleFromForm(rolePreset, customRole);
+    if (rolePreset === "Other" && !customRole.trim()) {
+      setErrorMessage(tr.roleRequired);
+      return;
+    }
     const salaryValue = salary ? Number(salary) : undefined;
     setSaving(true);
     const employeeName = name.trim();
     const employeeEmail = email.trim();
+    const normalizedPages = normalizeAccessPages(accessPages);
     const inviteRes = await db.business.createEmployeeInvite({
       owner_user_id: userId,
       employee_name: employeeName,
       employee_email: employeeEmail,
-      access_pages: accessPages,
+      role: resolvedRole,
+      access_pages: normalizedPages,
       salary: typeof salaryValue === "number" && Number.isFinite(salaryValue) ? salaryValue : undefined,
     });
     if (!inviteRes.data) {
@@ -72,7 +72,8 @@ const AddEmployeeModal = ({ open, onClose, userId, onAdded }: Props) => {
       user_id: userId,
       name: employeeName,
       email: employeeEmail,
-      access_pages: accessPages,
+      role: resolvedRole,
+      access_pages: normalizedPages,
       salary: typeof salaryValue === "number" && Number.isFinite(salaryValue) ? salaryValue : undefined,
     });
     setSaving(false);
@@ -91,8 +92,8 @@ const AddEmployeeModal = ({ open, onClose, userId, onAdded }: Props) => {
           body: JSON.stringify({
             to: employeeEmail,
             subject: "You're invited",
-            text: `You're invited to join. Open: ${inviteLink}`,
-            html: `<p>You're invited to join.</p><p><a href="${inviteLink}">${inviteLink}</a></p>`,
+            text: `You're invited to join as ${resolvedRole}. Open: ${inviteLink}`,
+            html: `<p>You're invited to join as <strong>${resolvedRole}</strong>.</p><p><a href="${inviteLink}">${inviteLink}</a></p>`,
           }),
         });
         setSentMessage(tr.inviteEmailSent);
@@ -104,6 +105,8 @@ const AddEmployeeModal = ({ open, onClose, userId, onAdded }: Props) => {
     onClose();
     setName("");
     setEmail("");
+    setRolePreset("Employee");
+    setCustomRole("");
     setAccessPages([]);
     setSalary("");
   };
@@ -113,7 +116,7 @@ const AddEmployeeModal = ({ open, onClose, userId, onAdded }: Props) => {
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{tr.addEmployee}</DialogTitle>
-          <DialogDescription>Invite a new team member and set their salary.</DialogDescription>
+          <DialogDescription>Invite a team member, set their role, access, and salary.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <input
@@ -130,6 +133,14 @@ const AddEmployeeModal = ({ open, onClose, userId, onAdded }: Props) => {
             onChange={(e) => setEmail(e.target.value)}
             className="w-full border border-input bg-background px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             required
+          />
+          <EmployeeRoleSelect
+            preset={rolePreset}
+            customRole={customRole}
+            onPresetChange={setRolePreset}
+            onCustomRoleChange={setCustomRole}
+            roleLabel={tr.employeeRole}
+            customRoleLabel={tr.customRole}
           />
           <div className="space-y-2">
             <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -174,13 +185,13 @@ const AddEmployeeModal = ({ open, onClose, userId, onAdded }: Props) => {
               </PopoverContent>
             </Popover>
           </div>
-	          <input
-	            type="number"
-	            placeholder={`Salary (${currencySymbol})`}
-	            value={salary}
-	            onChange={(e) => setSalary(e.target.value)}
-	            className="w-full border border-input bg-background px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-	          />
+          <input
+            type="number"
+            placeholder={`Salary (${currencySymbol})`}
+            value={salary}
+            onChange={(e) => setSalary(e.target.value)}
+            className="w-full border border-input bg-background px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          />
           {errorMessage && (
             <p className="text-xs text-destructive">{errorMessage}</p>
           )}

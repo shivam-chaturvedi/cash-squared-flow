@@ -3,6 +3,7 @@ export type PendingInvite = {
   ownerUserId: string;
   employeeName: string;
   employeeEmail: string;
+  employeeRole: string;
   accessPages: string[];
   salary: number | null;
 };
@@ -25,6 +26,7 @@ export const getPendingInvite = (): PendingInvite | null => {
       ownerUserId: String(parsed.ownerUserId),
       employeeName: String(parsed.employeeName ?? ""),
       employeeEmail: String(parsed.employeeEmail ?? ""),
+      employeeRole: String(parsed.employeeRole ?? "Employee"),
       accessPages: Array.isArray(parsed.accessPages) ? parsed.accessPages.map(String) : [],
       salary: typeof parsed.salary === "number" ? parsed.salary : null,
     };

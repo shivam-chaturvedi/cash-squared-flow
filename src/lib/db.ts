@@ -25,6 +25,9 @@ const withNumbers = <T extends Record<string, unknown>>(row: T, keys: (keyof T)[
   return next;
 };
 
+import { normalizeAccessPages } from "@/lib/businessAccessPages";
+import { normalizeEmployeeRole } from "@/lib/employeeRoles";
+
 const toStringArray = (value: unknown): string[] => {
   if (Array.isArray(value)) return value.map((v) => String(v).trim()).filter(Boolean);
   if (typeof value === "string") {
@@ -159,6 +162,7 @@ export type BusinessEmployeeInviteRow = {
   owner_user_id: string;
   employee_name: string;
   employee_email: string;
+  role: string | null;
   access_pages: string[];
   salary: number | string | null;
   status: "pending" | "accepted" | string;
@@ -378,7 +382,7 @@ export const db = {
           const normalized = {
             ...row,
             role: typeof row.role === "string" && row.role.trim() ? row.role : "Employee",
-            access_pages: toStringArray(row.access_pages),
+            access_pages: normalizeAccessPages(toStringArray(row.access_pages)),
             salary: row.salary === null ? null : toNumber(row.salary),
           };
           return normalized as unknown as BusinessEmployeeRow;
@@ -388,7 +392,42 @@ export const db = {
         return fail(e);
       }
     },
-    async addEmployee(input: { user_id: string; name: string; email: string; access_pages: string[]; salary?: number }): Promise<DbResult<BusinessEmployeeRow>> {
+    async updateEmployee(
+      employeeId: string,
+      input: { access_pages?: string[]; role?: string },
+    ): Promise<DbResult<BusinessEmployeeRow>> {
+      try {
+        const payload: Record<string, unknown> = {
+          last_edit_at: new Date().toISOString(),
+        };
+        if (input.access_pages) payload.access_pages = normalizeAccessPages(input.access_pages);
+        if (typeof input.role === "string") payload.role = normalizeEmployeeRole(input.role);
+
+        const { data, error } = await supabase
+          .from("business_employees")
+          .update(payload)
+          .eq("id", employeeId)
+          .select("*")
+          .single();
+        if (error) return { data: null, error: error.message };
+        const row = data as Record<string, unknown>;
+        return ok({
+          ...(row as object),
+          role: normalizeEmployeeRole(row.role as string | null),
+          access_pages: normalizeAccessPages(toStringArray(row.access_pages)),
+        } as BusinessEmployeeRow);
+      } catch (e) {
+        return fail(e);
+      }
+    },
+    async addEmployee(input: {
+      user_id: string;
+      name: string;
+      email: string;
+      access_pages: string[];
+      role?: string;
+      salary?: number;
+    }): Promise<DbResult<BusinessEmployeeRow>> {
       try {
         const { data, error } = await supabase
           .from("business_employees")
@@ -396,15 +435,20 @@ export const db = {
             user_id: input.user_id,
             name: input.name,
             email: input.email,
-            role: "Employee",
-            access_pages: input.access_pages,
+            role: normalizeEmployeeRole(input.role),
+            access_pages: normalizeAccessPages(input.access_pages),
             salary: typeof input.salary === "number" ? input.salary : null,
             last_edit_at: new Date().toISOString(),
           })
           .select("*")
           .single();
         if (error) return { data: null, error: error.message };
-        return ok(withNumbers(data as unknown as Record<string, unknown>, ["salary"]) as unknown as BusinessEmployeeRow);
+        const row = data as Record<string, unknown>;
+        return ok({
+          ...withNumbers(row, ["salary"]),
+          role: normalizeEmployeeRole(row.role as string | null),
+          access_pages: normalizeAccessPages(toStringArray(row.access_pages)),
+        } as BusinessEmployeeRow);
       } catch (e) {
         return fail(e);
       }
@@ -491,6 +535,7 @@ export const db = {
       employee_name: string;
       employee_email: string;
       access_pages: string[];
+      role?: string;
       salary?: number;
     }): Promise<DbResult<BusinessEmployeeInviteRow>> {
       try {
@@ -500,7 +545,8 @@ export const db = {
             owner_user_id: input.owner_user_id,
             employee_name: input.employee_name,
             employee_email: input.employee_email,
-            access_pages: input.access_pages,
+            role: normalizeEmployeeRole(input.role),
+            access_pages: normalizeAccessPages(input.access_pages),
             salary: typeof input.salary === "number" ? input.salary : null,
           })
           .select("*")

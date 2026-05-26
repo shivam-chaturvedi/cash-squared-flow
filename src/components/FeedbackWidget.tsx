@@ -3,9 +3,9 @@ import { MessageSquareText, Send } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import { useApp } from "@/contexts/AppContext";
 import { supabase } from "@/lib/supabaseClient";
+import { getFeedbackFormUrl } from "@/lib/feedbackForm";
 
 const MAX_MESSAGE_LEN = 2000;
-const DEFAULT_FEEDBACK_FORM_URL = "https://docs.google.com/forms/d/1mx1LaBTDtMpXw7aQdSY5QoXLvrU1XMSYHkr6I3CZuA4/edit";
 
 const FeedbackWidget = () => {
   const { session } = useApp();
@@ -20,8 +20,7 @@ const FeedbackWidget = () => {
   const [submitting, setSubmitting] = useState(false);
 
   const pagePath = useMemo(() => location.pathname + location.search + location.hash, [location]);
-  const feedbackFormUrl =
-    (import.meta.env.VITE_FEEDBACK_FORM_URL as string | undefined) || DEFAULT_FEEDBACK_FORM_URL;
+  const feedbackFormUrl = getFeedbackFormUrl();
 
   if (!userId) return null;
 

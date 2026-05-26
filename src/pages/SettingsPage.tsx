@@ -7,6 +7,7 @@ import { subscribeNotifications } from "@/lib/notifications";
 import { db, type AppNotificationRow } from "@/lib/db";
 import PageHeader from "@/components/PageHeader";
 import TranslateLanguageSelect from "@/components/TranslateLanguageSelect";
+import { getFeedbackFormUrl } from "@/lib/feedbackForm";
 
 type SettingsSection = "account" | "language" | "notifications" | "security" | "feedback";
 
@@ -256,7 +257,7 @@ const SettingsPage = () => {
           </div>
         );
       case "feedback": {
-        const feedbackUrl = (import.meta.env.VITE_FEEDBACK_FORM_URL as string | undefined) || "";
+        const feedbackUrl = getFeedbackFormUrl();
         return (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
@@ -268,18 +269,14 @@ const SettingsPage = () => {
                 Set <code className="font-mono">VITE_FEEDBACK_FORM_URL</code> to control where this button points.
               </p>
               <div className="mt-3">
-                {feedbackUrl ? (
-                  <a
-                    href={feedbackUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center justify-center rounded-xl border border-border bg-background px-4 py-2 text-sm font-semibold hover:bg-accent transition"
-                  >
-                    Open feedback form
-                  </a>
-                ) : (
-                  <p className="text-xs text-muted-foreground">No feedback form link configured yet.</p>
-                )}
+                <a
+                  href={feedbackUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-center rounded-xl border border-border bg-background px-4 py-2 text-sm font-semibold hover:bg-accent transition"
+                >
+                  Open feedback form
+                </a>
               </div>
             </div>
           </div>

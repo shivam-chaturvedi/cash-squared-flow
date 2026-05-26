@@ -65,7 +65,10 @@ const AppContent = () => {
     if (location.pathname === "/signup" && authState === "login") {
       setAuthState("signup");
     }
-  }, [location.pathname, authState, setAuthState]);
+    if (authState === "signup" && location.pathname !== "/signup" && !location.pathname.startsWith("/invite/")) {
+      navigate("/signup", { replace: true });
+    }
+  }, [location.pathname, authState, setAuthState, navigate]);
 
   if (booting) {
     return (
