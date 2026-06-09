@@ -69,6 +69,9 @@ export type PersonalFriendRow = {
   user_id: string;
   friend_name: string;
   friend_email: string;
+  friend_user_id: string | null;
+  connection_id: string | null;
+  status: "pending" | "active" | string;
   created_at: string;
   updated_at: string;
 };
@@ -77,12 +80,37 @@ export type PersonalFriendEntryRow = {
   id: string;
   user_id: string;
   friend_id: string;
+  connection_id: string | null;
+  created_by_user_id: string | null;
   direction: "they_owe_me" | "i_owe_them";
   amount: number;
   note: string | null;
   entry_on: string;
   created_at: string;
   updated_at: string;
+};
+
+export type PersonalFriendInviteRow = {
+  id: string;
+  connection_id: string;
+  inviter_user_id: string;
+  invitee_name: string;
+  invitee_email: string;
+  status: string;
+  claimed_user_id: string | null;
+  accepted_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PersonalFriendActivityRow = {
+  id: string;
+  connection_id: string;
+  actor_user_id: string | null;
+  action: string;
+  summary: string;
+  details: Record<string, unknown>;
+  created_at: string;
 };
 
 export type BusinessCustomerRow = {
@@ -237,6 +265,19 @@ export const db = {
         return fail(e);
       }
     },
+    async findUserIdByEmail(email: string): Promise<DbResult<string | null>> {
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("user_id")
+          .ilike("email", email.trim())
+          .maybeSingle();
+        if (error) return { data: null, error: error.message };
+        return ok(data?.user_id ? String(data.user_id) : null);
+      } catch (e) {
+        return fail(e);
+      }
+    },
     async listFriends(userId: string): Promise<DbResult<PersonalFriendRow[]>> {
       try {
         const { data, error } = await supabase.from("personal_friends").select("*").eq("user_id", userId).order("created_at", { ascending: false });
@@ -246,25 +287,158 @@ export const db = {
         return fail(e);
       }
     },
-    async addFriend(input: { user_id: string; friend_name: string; friend_email: string }): Promise<DbResult<PersonalFriendRow>> {
+    async getFriendInvite(inviteId: string): Promise<DbResult<PersonalFriendInviteRow>> {
       try {
-        const { data, error } = await supabase.from("personal_friends").insert(input).select("*").single();
+        const { data, error } = await supabase
+          .from("personal_friend_invites")
+          .select("*")
+          .eq("id", inviteId)
+          .maybeSingle();
         if (error) return { data: null, error: error.message };
-        return ok(data as PersonalFriendRow);
+        if (!data) return { data: null, error: "Invite not found" };
+        return ok(data as PersonalFriendInviteRow);
+      } catch (e) {
+        return fail(e);
+      }
+    },
+    async inviteFriend(input: {
+      inviter_user_id: string;
+      friend_name: string;
+      friend_email: string;
+    }): Promise<DbResult<{ friend: PersonalFriendRow; invite: PersonalFriendInviteRow | null; existingUserId: string | null }>> {
+      try {
+        const email = input.friend_email.trim().toLowerCase();
+        const name = input.friend_name.trim();
+        const existing = await db.personal.findUserIdByEmail(email);
+        if (existing.error) return { data: null, error: existing.error };
+        const existingUserId = existing.data;
+
+        const { data: connection, error: connErr } = await supabase
+          .from("personal_friend_connections")
+          .insert({
+            inviter_user_id: input.inviter_user_id,
+            invitee_email: email,
+            invitee_name: name,
+            invitee_user_id: existingUserId,
+            status: existingUserId ? "active" : "pending",
+            accepted_at: existingUserId ? new Date().toISOString() : null,
+          })
+          .select("*")
+          .single();
+        if (connErr || !connection) return { data: null, error: connErr?.message ?? "Unable to create connection" };
+
+        const { data: friendRow, error: friendErr } = await supabase
+          .from("personal_friends")
+          .insert({
+            user_id: input.inviter_user_id,
+            friend_name: name,
+            friend_email: email,
+            friend_user_id: existingUserId,
+            connection_id: connection.id,
+            status: existingUserId ? "active" : "pending",
+          })
+          .select("*")
+          .single();
+        if (friendErr || !friendRow) return { data: null, error: friendErr?.message ?? "Unable to add friend" };
+
+        let inviteRow: PersonalFriendInviteRow | null = null;
+        if (!existingUserId) {
+          const { data: invite, error: inviteErr } = await supabase
+            .from("personal_friend_invites")
+            .insert({
+              connection_id: connection.id,
+              inviter_user_id: input.inviter_user_id,
+              invitee_name: name,
+              invitee_email: email,
+            })
+            .select("*")
+            .single();
+          if (inviteErr) return { data: null, error: inviteErr.message };
+          inviteRow = invite as PersonalFriendInviteRow;
+        } else {
+          const { data: inviterProfile } = await supabase
+            .from("profiles")
+            .select("full_name,email")
+            .eq("user_id", input.inviter_user_id)
+            .maybeSingle();
+          const { data: reciprocal } = await supabase
+            .from("personal_friends")
+            .select("id")
+            .eq("user_id", existingUserId)
+            .eq("connection_id", connection.id)
+            .maybeSingle();
+          if (!reciprocal) {
+            await supabase.from("personal_friends").insert({
+              user_id: existingUserId,
+              friend_name: inviterProfile?.full_name || inviterProfile?.email?.split("@")[0] || "Friend",
+              friend_email: (inviterProfile?.email ?? "").toLowerCase(),
+              friend_user_id: input.inviter_user_id,
+              connection_id: connection.id,
+              status: "active",
+            });
+          }
+        }
+
+        await supabase.from("personal_friend_activity_log").insert({
+          connection_id: connection.id,
+          actor_user_id: input.inviter_user_id,
+          action: existingUserId ? "friend_linked" : "invite_sent",
+          summary: existingUserId
+            ? `${name} was added — you can track IOUs together now`
+            : `Invite sent to ${name} (${email})`,
+          details: { invitee_email: email },
+        });
+
+        return ok({
+          friend: friendRow as PersonalFriendRow,
+          invite: inviteRow,
+          existingUserId,
+        });
       } catch (e) {
         return fail(e);
       }
     },
     async listFriendEntries(userId: string): Promise<DbResult<PersonalFriendEntryRow[]>> {
       try {
+        const friendsRes = await db.personal.listFriends(userId);
+        if (friendsRes.error || !friendsRes.data) return { data: null, error: friendsRes.error ?? "Unable to load friends" };
+        const connectionIds = friendsRes.data.map((f) => f.connection_id).filter(Boolean) as string[];
+        if (connectionIds.length === 0) {
+          const { data, error } = await supabase
+            .from("personal_friend_entries")
+            .select("*")
+            .eq("user_id", userId)
+            .order("entry_on", { ascending: false })
+            .order("created_at", { ascending: false });
+          if (error) return { data: null, error: error.message };
+          return ok((data ?? []).map((r) => withNumbers(r as Record<string, unknown>, ["amount"])) as PersonalFriendEntryRow[]);
+        }
         const { data, error } = await supabase
           .from("personal_friend_entries")
           .select("*")
-          .eq("user_id", userId)
+          .in("connection_id", connectionIds)
           .order("entry_on", { ascending: false })
           .order("created_at", { ascending: false });
         if (error) return { data: null, error: error.message };
-        return ok((data ?? []) as PersonalFriendEntryRow[]);
+        return ok(
+          ((data ?? []) as Record<string, unknown>[]).map(
+            (r) => withNumbers(r, ["amount"]) as unknown as PersonalFriendEntryRow,
+          ),
+        );
+      } catch (e) {
+        return fail(e);
+      }
+    },
+    async listFriendActivity(connectionId: string): Promise<DbResult<PersonalFriendActivityRow[]>> {
+      try {
+        const { data, error } = await supabase
+          .from("personal_friend_activity_log")
+          .select("*")
+          .eq("connection_id", connectionId)
+          .order("created_at", { ascending: false })
+          .limit(100);
+        if (error) return { data: null, error: error.message };
+        return ok((data ?? []) as PersonalFriendActivityRow[]);
       } catch (e) {
         return fail(e);
       }
@@ -272,6 +446,7 @@ export const db = {
     async addFriendEntry(input: {
       user_id: string;
       friend_id: string;
+      connection_id?: string | null;
       direction: "they_owe_me" | "i_owe_them";
       amount: number;
       note?: string;
@@ -283,6 +458,8 @@ export const db = {
           .insert({
             user_id: input.user_id,
             friend_id: input.friend_id,
+            connection_id: input.connection_id ?? null,
+            created_by_user_id: input.user_id,
             direction: input.direction,
             amount: input.amount,
             note: input.note ?? null,
@@ -291,7 +468,22 @@ export const db = {
           .select("*")
           .single();
         if (error) return { data: null, error: error.message };
-        return ok(withNumbers(data as unknown as Record<string, unknown>, ["amount"]) as unknown as PersonalFriendEntryRow);
+        const row = withNumbers(data as unknown as Record<string, unknown>, ["amount"]) as unknown as PersonalFriendEntryRow;
+        if (input.connection_id) {
+          await supabase.from("personal_friend_activity_log").insert({
+            connection_id: input.connection_id,
+            actor_user_id: input.user_id,
+            action: "entry_added",
+            summary: `Entry added: ${input.direction === "they_owe_me" ? "they owe" : "you owe"} ${input.amount}`,
+            details: {
+              amount: input.amount,
+              direction: input.direction,
+              note: input.note ?? null,
+              entry_on: input.entry_on,
+            },
+          });
+        }
+        return ok(row);
       } catch (e) {
         return fail(e);
       }

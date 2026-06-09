@@ -9,6 +9,7 @@ import LandingPage from "@/pages/Index";
 import LoginPage from "@/pages/LoginPage";
 import OtpPage from "@/pages/OtpPage";
 import InvitePage from "@/pages/InvitePage";
+import FriendInvitePage from "@/pages/FriendInvitePage";
 import TermsPage from "@/pages/TermsPage";
 import AccountTypeSelect from "@/pages/AccountTypeSelect";
 import BusinessSetupPage from "@/pages/BusinessSetupPage";
@@ -37,6 +38,7 @@ const AuthedApp = ({ mode }: { mode: "business" | "personal" }) => (
     <Routes>
       <Route path="/" element={mode === "business" ? <BusinessDashboard /> : <PersonalDashboard />} />
       <Route path="/invite/:id" element={<InvitePage />} />
+      <Route path="/friend-invite/:id" element={<FriendInvitePage />} />
       <Route path="/customers" element={<CustomersPage />} />
       <Route path="/suppliers" element={<SuppliersPage />} />
       <Route path="/expenses" element={mode === "business" ? <BusinessExpensesPage /> : <PersonalExpensesPage />} />
@@ -65,7 +67,12 @@ const AppContent = () => {
     if (location.pathname === "/signup" && authState === "login") {
       setAuthState("signup");
     }
-    if (authState === "signup" && location.pathname !== "/signup" && !location.pathname.startsWith("/invite/")) {
+    if (
+      authState === "signup" &&
+      location.pathname !== "/signup" &&
+      !location.pathname.startsWith("/invite/") &&
+      !location.pathname.startsWith("/friend-invite/")
+    ) {
       navigate("/signup", { replace: true });
     }
   }, [location.pathname, authState, setAuthState, navigate]);
@@ -78,9 +85,12 @@ const AppContent = () => {
     );
   }
 
-  // Invite link works for unauthenticated users too
+  // Invite links work for unauthenticated users too
   if (location.pathname.startsWith("/invite/") && (authState === "login" || authState === "signup")) {
     return <InvitePage />;
+  }
+  if (location.pathname.startsWith("/friend-invite/") && (authState === "login" || authState === "signup")) {
+    return <FriendInvitePage />;
   }
 
   // Edge case: user refreshed mid-onboarding but already accepted terms
@@ -115,6 +125,7 @@ const AppContent = () => {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<LoginPage initialIsSignup />} />
       <Route path="/invite/:id" element={<InvitePage />} />
+      <Route path="/friend-invite/:id" element={<FriendInvitePage />} />
       {/* Any unknown path → landing */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

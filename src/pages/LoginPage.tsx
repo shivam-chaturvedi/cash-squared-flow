@@ -8,6 +8,7 @@ import { setPendingSignupOtpEmail } from "@/lib/signupOtpPending";
 import { Mail, Lock, Eye, EyeOff, User, Calendar } from "lucide-react";
 import TopAccent from "@/components/TopAccent";
 import { getPendingInvite } from "@/lib/pendingInvite";
+import { getPendingFriendInvite } from "@/lib/pendingFriendInvite";
 
 const LoginPage = ({ initialIsSignup = false }: { initialIsSignup?: boolean }) => {
   const { language, setLanguage, authState, setAuthState, setUserName, setUserAge, setUserEmail } = useApp();
@@ -34,14 +35,18 @@ const LoginPage = ({ initialIsSignup = false }: { initialIsSignup?: boolean }) =
   }, [authState]);
 
   useEffect(() => {
-    const invite = getPendingInvite();
+    const employeeInvite = getPendingInvite();
+    const friendInvite = getPendingFriendInvite();
+    const invite = employeeInvite ?? friendInvite;
     if (!invite) return;
     setIsSignup(true);
     setSignupStep(1);
-    if (invite.employeeName) setName(invite.employeeName);
-    if (invite.employeeEmail) setEmail(invite.employeeEmail);
-    setUserName(invite.employeeName || "User");
-    setUserEmail(invite.employeeEmail || "");
+    const inviteName = "employeeName" in invite ? invite.employeeName : invite.inviteeName;
+    const inviteEmail = "employeeEmail" in invite ? invite.employeeEmail : invite.inviteeEmail;
+    if (inviteName) setName(inviteName);
+    if (inviteEmail) setEmail(inviteEmail);
+    setUserName(inviteName || "User");
+    setUserEmail(inviteEmail || "");
     setAuthState("signup");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

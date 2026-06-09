@@ -1,14 +1,17 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { t } from "@/lib/translations";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { addNotification } from "@/lib/notifications";
 import { toast } from "@/hooks/use-toast";
 import { Plus, Users } from "lucide-react";
-import { db, type PersonalFriendEntryRow, type PersonalFriendRow } from "@/lib/db";
-import { subscribeDataChanged } from "@/lib/events";
+import { db, type PersonalFriendActivityRow, type PersonalFriendEntryRow, type PersonalFriendRow } from "@/lib/db";
+import { emitDataChanged, subscribeDataChanged } from "@/lib/events";
 import PageHeader from "@/components/PageHeader";
 import { useMoney } from "@/hooks/useMoney";
+import { balanceForUser } from "@/lib/friendBalance";
+import { appWebsiteOrigin, sendMail } from "@/lib/sendMail";
+import { supabase } from "@/lib/supabaseClient";
 
 const FriendsPage = () => {
   const { language, session, userName } = useApp();
@@ -17,6 +20,7 @@ const FriendsPage = () => {
   const userId = session?.user?.id ?? null;
   const [friends, setFriends] = useState<PersonalFriendRow[]>([]);
   const [txns, setTxns] = useState<PersonalFriendEntryRow[]>([]);
+  const [activity, setActivity] = useState<PersonalFriendActivityRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [selectedFriendId, setSelectedFriendId] = useState<string | null>(null);
@@ -24,6 +28,7 @@ const FriendsPage = () => {
 
   const [showAddFriend, setShowAddFriend] = useState(false);
   const [showAddTxn, setShowAddTxn] = useState(false);
+  const [inviting, setInviting] = useState(false);
 
   const [friendName, setFriendName] = useState("");
   const [friendEmail, setFriendEmail] = useState("");
@@ -33,21 +38,44 @@ const FriendsPage = () => {
   const [note, setNote] = useState("");
   const [date, setDate] = useState(() => new Date().toISOString().split("T")[0]);
 
+  const entriesForFriend = useCallback(
+    (friend: PersonalFriendRow) => {
+      if (friend.connection_id) {
+        return txns.filter((e) => e.connection_id === friend.connection_id);
+      }
+      return txns.filter((e) => e.friend_id === friend.id);
+    },
+    [txns],
+  );
+
   const balances = useMemo(() => {
     const map = new Map<string, number>();
-    for (const txn of txns) {
-      const sign = txn.direction === "they_owe_me" ? 1 : -1;
-      map.set(txn.friend_id, (map.get(txn.friend_id) ?? 0) + sign * Number(txn.amount));
+    if (!userId) return map;
+    for (const friend of friends) {
+      map.set(friend.id, balanceForUser(entriesForFriend(friend), userId));
     }
     return map;
-  }, [txns]);
+  }, [entriesForFriend, friends, userId]);
 
-  const selectedTxns = useMemo(() => txns.filter((t) => t.friend_id === selectedFriendId), [txns, selectedFriendId]);
+  const selectedTxns = useMemo(
+    () => (selectedFriend ? entriesForFriend(selectedFriend) : []),
+    [entriesForFriend, selectedFriend],
+  );
 
-  const load = async () => {
+  const loadActivity = useCallback(async (connectionId: string | null) => {
+    if (!connectionId) {
+      setActivity([]);
+      return;
+    }
+    const res = await db.personal.listFriendActivity(connectionId);
+    if (res.data) setActivity(res.data);
+  }, []);
+
+  const load = useCallback(async () => {
     if (!userId) {
       setFriends([]);
       setTxns([]);
+      setActivity([]);
       setLoading(false);
       return;
     }
@@ -56,22 +84,49 @@ const FriendsPage = () => {
       db.personal.listFriends(userId),
       db.personal.listFriendEntries(userId),
     ]);
-    if (fRes.data) setFriends(fRes.data);
+    if (fRes.data) {
+      setFriends(fRes.data);
+      if (fRes.data.length > 0 && !selectedFriendId) setSelectedFriendId(fRes.data[0].id);
+      const selected = fRes.data.find((f) => f.id === selectedFriendId) ?? fRes.data[0];
+      if (selected?.connection_id) await loadActivity(selected.connection_id);
+    }
     if (tRes.data) setTxns(tRes.data);
-    if (fRes.data && fRes.data.length > 0 && !selectedFriendId) setSelectedFriendId(fRes.data[0].id);
     setLoading(false);
-  };
+  }, [loadActivity, selectedFriendId, userId]);
 
   useEffect(() => {
     void load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId]);
+  }, [load]);
 
   useEffect(() => {
     return subscribeDataChanged(() => {
       void load();
     });
-  }, [userId]);
+  }, [load]);
+
+  useEffect(() => {
+    if (!userId) return;
+    const channel = supabase
+      .channel(`personal-friends-${userId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "personal_friend_entries" }, () => {
+        void load();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "personal_friend_activity_log" }, () => {
+        if (selectedFriend?.connection_id) void loadActivity(selectedFriend.connection_id);
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "personal_friend_connections" }, () => {
+        void load();
+      })
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [load, loadActivity, selectedFriend?.connection_id, userId]);
+
+  useEffect(() => {
+    if (selectedFriend?.connection_id) void loadActivity(selectedFriend.connection_id);
+    else setActivity([]);
+  }, [loadActivity, selectedFriend?.connection_id]);
 
   const openAddTxn = (friendId: string) => {
     setSelectedFriendId(friendId);
@@ -87,38 +142,81 @@ const FriendsPage = () => {
     const name = friendName.trim();
     const email = friendEmail.trim().toLowerCase();
     if (!userId || !name || !email) return;
+    if (email === (session?.user?.email ?? "").toLowerCase()) {
+      toast({ title: "You can't invite yourself", variant: "destructive" });
+      return;
+    }
     if (friends.some((f) => f.friend_email.toLowerCase() === email)) return;
+
     void (async () => {
-      const res = await db.personal.addFriend({ user_id: userId, friend_name: name, friend_email: email });
-      if (res.data) {
-        await load();
-        setSelectedFriendId(res.data.id);
-        setFriendName("");
-        setFriendEmail("");
-        setShowAddFriend(false);
+      setInviting(true);
+      const res = await db.personal.inviteFriend({
+        inviter_user_id: userId,
+        friend_name: name,
+        friend_email: email,
+      });
+      setInviting(false);
+      if (!res.data) {
+        toast({ title: res.error ?? "Unable to invite friend", variant: "destructive" });
+        return;
+      }
+
+      const { friend, invite, existingUserId } = res.data;
+      await load();
+      setSelectedFriendId(friend.id);
+      setFriendName("");
+      setFriendEmail("");
+      setShowAddFriend(false);
+      emitDataChanged();
+
+      if (existingUserId) {
         await addNotification({
-          user_id: userId,
+          user_id: existingUserId,
           scope: "personal",
           type: "friend_update",
           title: tr.friendAdded,
-          description: `${name} (${email})`,
+          description: `${userName} added you on Friends — track IOUs together`,
           actor: userName,
           actor_role: null,
         });
-        toast({ title: tr.friendAdded, description: `${name} (${email})` });
+        toast({ title: tr.friendLinked, description: `${name} is on Avail — you can collaborate now` });
+      } else if (invite) {
+        const inviteLink = `${appWebsiteOrigin()}/friend-invite/${invite.id}`;
+        const mail = await sendMail({
+          to: email,
+          subject: `${userName} invited you to track expenses on Avail`,
+          text: `${userName} invited you to track shared debts on Avail. Open: ${inviteLink}`,
+          html: `<p><strong>${userName}</strong> invited you to track shared debts on Avail.</p><p><a href="${inviteLink}">${inviteLink}</a></p>`,
+        });
+        toast({
+          title: mail.ok ? tr.friendInviteSent : tr.friendAdded,
+          description: mail.ok ? `${name} (${email})` : mail.error ?? `${name} (${email})`,
+          variant: mail.ok ? "default" : "destructive",
+        });
       }
+
+      await addNotification({
+        user_id: userId,
+        scope: "personal",
+        type: "friend_update",
+        title: tr.friendAdded,
+        description: `${name} (${email})`,
+        actor: userName,
+        actor_role: null,
+      });
     })();
   };
 
   const handleAddTxn = (e: FormEvent) => {
     e.preventDefault();
-    if (!userId || !selectedFriendId) return;
+    if (!userId || !selectedFriendId || !selectedFriend) return;
     const amt = Number(amount);
     if (Number.isNaN(amt) || amt <= 0) return;
     void (async () => {
       const res = await db.personal.addFriendEntry({
         user_id: userId,
         friend_id: selectedFriendId,
+        connection_id: selectedFriend.connection_id,
         direction,
         amount: amt,
         note: note.trim(),
@@ -126,22 +224,106 @@ const FriendsPage = () => {
       });
       if (res.data) {
         await load();
+        if (selectedFriend.connection_id) await loadActivity(selectedFriend.connection_id);
         setShowAddTxn(false);
-        const friend = friends.find((f) => f.id === selectedFriendId);
-        const who = friend?.friend_name ?? tr.friend;
+        emitDataChanged();
         const directionLabel = direction === "they_owe_me" ? tr.theyOweYou : tr.youOweThem;
-        await addNotification({
-          user_id: userId,
-          scope: "personal",
-          type: "friend_update",
-          title: tr.friendUpdated,
-          description: `${who}: ${directionLabel} ${formatMoney(amt)}`,
-          actor: userName,
-          actor_role: null,
-        });
-        toast({ title: tr.friendUpdated, description: `${who}: ${directionLabel} ${formatMoney(amt)}` });
+        toast({ title: tr.friendUpdated, description: `${selectedFriend.friend_name}: ${directionLabel} ${formatMoney(amt)}` });
+
+        if (selectedFriend.friend_user_id) {
+          await addNotification({
+            user_id: selectedFriend.friend_user_id,
+            scope: "personal",
+            type: "friend_update",
+            title: tr.friendUpdated,
+            description: `${userName}: ${directionLabel} ${formatMoney(amt)}`,
+            actor: userName,
+            actor_role: null,
+          });
+        }
       }
     })();
+  };
+
+  const renderFriendDetail = () => {
+    if (!selectedFriend) return null;
+    const bal = balances.get(selectedFriend.id) ?? 0;
+    return (
+      <div className="w-full max-w-xl p-6 animate-fade-in">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="font-bold text-lg">{selectedFriend.friend_name}</h3>
+            <p className="text-sm text-muted-foreground">{selectedFriend.friend_email}</p>
+            {selectedFriend.status === "pending" && (
+              <p className="text-xs text-amber-600 mt-1">{tr.friendPending}</p>
+            )}
+          </div>
+          <button
+            onClick={() => openAddTxn(selectedFriend.id)}
+            className="bg-primary text-primary-foreground px-3 py-2 text-sm font-medium hover:opacity-90 transition"
+          >
+            {tr.addEntry}
+          </button>
+        </div>
+
+        <div className="mt-4 bg-card border border-border p-4">
+          <p className="text-xs text-muted-foreground">{tr.netBalance}</p>
+          <p className="text-2xl font-bold">
+            {formatMoneyAbs(bal)}{" "}
+            <span className="text-sm font-semibold text-muted-foreground">
+              {bal === 0 ? tr.settledUp : bal > 0 ? tr.theyOweYou : tr.youOweThem}
+            </span>
+          </p>
+        </div>
+
+        <div className="mt-4 bg-card border border-border divide-y divide-border">
+          {selectedTxns.length === 0 ? (
+            <div className="p-4 text-sm text-muted-foreground">{tr.noEntriesYet}</div>
+          ) : (
+            selectedTxns.map((txn) => {
+              const createdBy = txn.created_by_user_id ?? txn.user_id;
+              const theyOwe = createdBy === userId
+                ? txn.direction === "they_owe_me"
+                : txn.direction === "i_owe_them";
+              return (
+                <div key={txn.id} className="flex items-center justify-between gap-4 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">
+                      {theyOwe ? tr.theyOweYou : tr.youOweThem} · {formatMoney(Number(txn.amount))}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {txn.note ? `${txn.note} • ` : ""}
+                      {txn.entry_on}
+                    </p>
+                  </div>
+                  <span className={`text-sm font-semibold ${theyOwe ? "text-money-in" : "text-money-out"}`}>
+                    {formatMoney(theyOwe ? Number(txn.amount) : -Number(txn.amount), { signDisplay: "always" })}
+                  </span>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        <div className="mt-4 bg-card border border-border">
+          <div className="px-4 py-3 border-b border-border">
+            <p className="text-sm font-semibold">{tr.activityLog}</p>
+          </div>
+          {activity.length === 0 ? (
+            <div className="p-4 text-sm text-muted-foreground">{tr.noActivityYet}</div>
+          ) : (
+            activity.map((item) => (
+              <div key={item.id} className="px-4 py-3 border-b border-border last:border-b-0">
+                <p className="text-sm">{item.summary}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {new Date(item.created_at).toLocaleString()}
+                </p>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -191,7 +373,10 @@ const FriendsPage = () => {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{f.friend_name}</p>
-                    <p className="text-xs text-muted-foreground truncate">{f.friend_email}</p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {f.friend_email}
+                      {f.status === "pending" ? ` · ${tr.friendPending}` : ""}
+                    </p>
                   </div>
                   <div className="text-right">
                     <p className={`text-sm font-semibold ${bal === 0 ? "text-muted-foreground" : bal > 0 ? "text-money-in" : "text-money-out"}`}>
@@ -206,66 +391,22 @@ const FriendsPage = () => {
         </div>
       </div>
 
-      <div className="hidden md:flex flex-1 items-center justify-center bg-background">
-        {selectedFriend ? (
-          <div className="w-full max-w-xl p-6 animate-fade-in">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-bold text-lg">{selectedFriend.friend_name}</h3>
-                <p className="text-sm text-muted-foreground">{selectedFriend.friend_email}</p>
-              </div>
-              <button
-                onClick={() => openAddTxn(selectedFriend.id)}
-                className="bg-primary text-primary-foreground px-3 py-2 text-sm font-medium hover:opacity-90 transition"
-              >
-                {tr.addEntry}
-              </button>
+      <div className="hidden md:flex flex-1 items-start justify-center bg-background overflow-auto">
+        {selectedFriend ? renderFriendDetail() : (
+          <div className="flex flex-1 items-center justify-center text-center text-muted-foreground min-h-[300px]">
+            <div>
+              <Users className="h-12 w-12 mx-auto mb-3 opacity-30" />
+              <p className="font-medium">{tr.selectFriendHint}</p>
             </div>
-
-            <div className="mt-4 bg-card border border-border p-4">
-              <p className="text-xs text-muted-foreground">{tr.netBalance}</p>
-              <p className="text-2xl font-bold">
-                {formatMoneyAbs(balances.get(selectedFriend.id) ?? 0)}{" "}
-                <span className="text-sm font-semibold text-muted-foreground">
-                  {(balances.get(selectedFriend.id) ?? 0) === 0
-                    ? tr.settledUp
-                    : (balances.get(selectedFriend.id) ?? 0) > 0
-                      ? tr.theyOweYou
-                      : tr.youOweThem}
-                </span>
-              </p>
-            </div>
-
-            <div className="mt-4 bg-card border border-border divide-y divide-border">
-              {selectedTxns.length === 0 ? (
-                <div className="p-4 text-sm text-muted-foreground">{tr.noEntriesYet}</div>
-              ) : (
-                selectedTxns.map((txn) => (
-                  <div key={txn.id} className="flex items-center justify-between gap-4 px-4 py-3">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">
-                        {txn.direction === "they_owe_me" ? tr.theyOweYou : tr.youOweThem} · {formatMoney(Number(txn.amount))}
-                      </p>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {txn.note ? `${txn.note} • ` : ""}
-                        {txn.entry_on}
-                      </p>
-                    </div>
-                    <span className={`text-sm font-semibold ${txn.direction === "they_owe_me" ? "text-money-in" : "text-money-out"}`}>
-                      {formatMoney(txn.direction === "they_owe_me" ? Number(txn.amount) : -Number(txn.amount), { signDisplay: "always" })}
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className="text-center text-muted-foreground">
-            <Users className="h-12 w-12 mx-auto mb-3 opacity-30" />
-            <p className="font-medium">{tr.selectFriendHint}</p>
           </div>
         )}
       </div>
+
+      {selectedFriend && (
+        <div className="md:hidden border-t border-border bg-background p-4">
+          {renderFriendDetail()}
+        </div>
+      )}
 
       <Dialog open={showAddFriend} onOpenChange={setShowAddFriend}>
         <DialogContent className="sm:max-w-md">
@@ -289,8 +430,12 @@ const FriendsPage = () => {
               className="w-full border border-input bg-background px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               required
             />
-            <button type="submit" className="w-full bg-primary text-primary-foreground py-2.5 text-sm font-medium hover:opacity-90">
-              {tr.invite}
+            <button
+              type="submit"
+              disabled={inviting}
+              className="w-full bg-primary text-primary-foreground py-2.5 text-sm font-medium hover:opacity-90 disabled:opacity-60"
+            >
+              {inviting ? "Sending…" : tr.invite}
             </button>
           </form>
         </DialogContent>
@@ -300,7 +445,7 @@ const FriendsPage = () => {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{tr.addEntry}</DialogTitle>
-            <DialogDescription>{selectedFriend ? selectedFriend.name : tr.friend}</DialogDescription>
+            <DialogDescription>{selectedFriend ? selectedFriend.friend_name : tr.friend}</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleAddTxn} className="space-y-3">
             <div className="flex bg-muted p-0.5">

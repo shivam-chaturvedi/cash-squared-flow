@@ -9,9 +9,11 @@ import { clearPendingSignup, clearPendingSignupOtp, getPendingSignup, getPending
 import { requestSignupOtp } from "@/lib/signupOtp";
 import { clearPendingInvite, getPendingInvite } from "@/lib/pendingInvite";
 import { completeEmployeeInvite, employeeProfileFromInvite } from "@/lib/completeEmployeeInvite";
+import { clearPendingFriendInvite, getPendingFriendInvite } from "@/lib/pendingFriendInvite";
+import { completeFriendInvite } from "@/lib/completeFriendInvite";
 
 const OtpPage = () => {
-  const { language, setAuthState, userEmail, saveProfile, setMode, setAccountTypes } = useApp();
+  const { language, setAuthState, userEmail, userName, saveProfile, setMode, setAccountTypes, accountTypes } = useApp();
   const tr = t[language];
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -98,6 +100,20 @@ const OtpPage = () => {
         await saveProfile(employeeProfileFromInvite(pendingInvite), data.session.user.id);
       }
       clearPendingInvite();
+    }
+    const pendingFriendInvite = getPendingFriendInvite();
+    if (pendingFriendInvite?.inviteId && data.session.user.id) {
+      const { error: friendError } = await completeFriendInvite(
+        pendingFriendInvite,
+        data.session.user.id,
+        data.session.user.email ?? pendingFriendInvite.inviteeEmail,
+        userName || pendingFriendInvite.inviteeName,
+      );
+      if (!friendError) {
+        setAccountTypes(accountTypes.includes("personal") ? accountTypes : [...accountTypes, "personal"]);
+        setMode("personal");
+      }
+      clearPendingFriendInvite();
     }
     setAuthState("signup-terms");
     setLoading(false);
