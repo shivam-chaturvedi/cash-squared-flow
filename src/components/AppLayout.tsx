@@ -13,6 +13,7 @@ import { db } from "@/lib/db";
 import { emitDataChanged } from "@/lib/events";
 import GoogleTranslateLoader from "@/components/GoogleTranslateLoader";
 import FeedbackWidget from "@/components/FeedbackWidget";
+import FriendChatWidget from "@/components/FriendChatWidget";
 import AnalyticsTracker from "@/components/AnalyticsTracker";
 import { BUSINESS_ACCESS_PAGE_LABELS } from "@/lib/businessAccessPages";
 
@@ -192,6 +193,7 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
           >
             <Plus className="h-5 w-5" />
           </button>
+          <FriendChatWidget />
           <FeedbackWidget />
         </div>
 

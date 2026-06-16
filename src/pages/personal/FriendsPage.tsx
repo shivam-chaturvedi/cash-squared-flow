@@ -12,6 +12,7 @@ import { useMoney } from "@/hooks/useMoney";
 import { balanceForUser } from "@/lib/friendBalance";
 import { appWebsiteOrigin, sendMail } from "@/lib/sendMail";
 import { supabase } from "@/lib/supabaseClient";
+import { broadcastFriendChatSelect } from "@/lib/friendChatSession";
 
 const FriendsPage = () => {
   const { language, session, userName } = useApp();
@@ -122,6 +123,16 @@ const FriendsPage = () => {
       void supabase.removeChannel(channel);
     };
   }, [load, loadActivity, selectedFriend?.connection_id, userId]);
+
+  useEffect(() => {
+    if (selectedFriend?.connection_id && selectedFriend.status !== "pending") {
+      broadcastFriendChatSelect({
+        connectionId: selectedFriend.connection_id,
+        friendId: selectedFriend.id,
+        friendName: selectedFriend.friend_name,
+      });
+    }
+  }, [selectedFriend?.connection_id, selectedFriend?.friend_name, selectedFriend?.id, selectedFriend?.status]);
 
   useEffect(() => {
     if (selectedFriend?.connection_id) void loadActivity(selectedFriend.connection_id);

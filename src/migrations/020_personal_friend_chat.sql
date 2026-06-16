@@ -1,4 +1,9 @@
--- Shared connection between two people tracking shared IOUs.
+-- Friend chat + prerequisites for shared friend connections.
+-- Safe to run if migration 019 was skipped; uses IF NOT EXISTS / DROP POLICY IF EXISTS.
+
+-- ---------------------------------------------------------------------------
+-- Prerequisites (from 019): shared connection between two friends
+-- ---------------------------------------------------------------------------
 create table if not exists public.personal_friend_connections (
   id uuid primary key default uuid_generate_v4(),
   inviter_user_id uuid not null references auth.users(id) on delete cascade,
@@ -64,18 +69,26 @@ alter table public.personal_friend_connections enable row level security;
 alter table public.personal_friend_invites enable row level security;
 alter table public.personal_friend_activity_log enable row level security;
 
+drop policy if exists allow_select_personal_friend_connections on public.personal_friend_connections;
+drop policy if exists allow_insert_personal_friend_connections on public.personal_friend_connections;
+drop policy if exists allow_update_personal_friend_connections on public.personal_friend_connections;
 create policy allow_select_personal_friend_connections on public.personal_friend_connections for select using (true);
 create policy allow_insert_personal_friend_connections on public.personal_friend_connections for insert with check (true);
 create policy allow_update_personal_friend_connections on public.personal_friend_connections for update using (true) with check (true);
 
+drop policy if exists allow_select_personal_friend_invites on public.personal_friend_invites;
+drop policy if exists allow_insert_personal_friend_invites on public.personal_friend_invites;
+drop policy if exists allow_update_personal_friend_invites on public.personal_friend_invites;
 create policy allow_select_personal_friend_invites on public.personal_friend_invites for select using (true);
 create policy allow_insert_personal_friend_invites on public.personal_friend_invites for insert with check (true);
 create policy allow_update_personal_friend_invites on public.personal_friend_invites for update using (true) with check (true);
 
+drop policy if exists allow_select_personal_friend_activity_log on public.personal_friend_activity_log;
+drop policy if exists allow_insert_personal_friend_activity_log on public.personal_friend_activity_log;
 create policy allow_select_personal_friend_activity_log on public.personal_friend_activity_log for select using (true);
 create policy allow_insert_personal_friend_activity_log on public.personal_friend_activity_log for insert with check (true);
 
--- Backfill connections for legacy friend rows.
+-- Backfill connections for legacy friend rows (one row per inviter + email).
 insert into public.personal_friend_connections (inviter_user_id, invitee_email, invitee_name, status, accepted_at)
 select distinct on (pf.user_id, lower(pf.friend_email))
   pf.user_id,
@@ -107,7 +120,46 @@ from public.personal_friends pf
 where e.connection_id is null
   and e.friend_id = pf.id;
 
--- Realtime for live collaboration.
+-- ---------------------------------------------------------------------------
+-- Friend chat tables
+-- ---------------------------------------------------------------------------
+create table if not exists public.personal_friend_messages (
+  id uuid primary key default uuid_generate_v4(),
+  connection_id uuid not null references public.personal_friend_connections(id) on delete cascade,
+  sender_user_id uuid not null references auth.users(id) on delete cascade,
+  body text not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists personal_friend_messages_connection_idx
+  on public.personal_friend_messages (connection_id, created_at asc);
+
+create index if not exists personal_friend_messages_sender_idx
+  on public.personal_friend_messages (sender_user_id);
+
+create table if not exists public.personal_friend_chat_read_state (
+  user_id uuid not null references auth.users(id) on delete cascade,
+  connection_id uuid not null references public.personal_friend_connections(id) on delete cascade,
+  last_read_at timestamptz not null default now(),
+  primary key (user_id, connection_id)
+);
+
+alter table public.personal_friend_messages enable row level security;
+alter table public.personal_friend_chat_read_state enable row level security;
+
+drop policy if exists allow_select_personal_friend_messages on public.personal_friend_messages;
+drop policy if exists allow_insert_personal_friend_messages on public.personal_friend_messages;
+create policy allow_select_personal_friend_messages on public.personal_friend_messages for select using (true);
+create policy allow_insert_personal_friend_messages on public.personal_friend_messages for insert with check (true);
+
+drop policy if exists allow_select_personal_friend_chat_read_state on public.personal_friend_chat_read_state;
+drop policy if exists allow_insert_personal_friend_chat_read_state on public.personal_friend_chat_read_state;
+drop policy if exists allow_update_personal_friend_chat_read_state on public.personal_friend_chat_read_state;
+create policy allow_select_personal_friend_chat_read_state on public.personal_friend_chat_read_state for select using (true);
+create policy allow_insert_personal_friend_chat_read_state on public.personal_friend_chat_read_state for insert with check (true);
+create policy allow_update_personal_friend_chat_read_state on public.personal_friend_chat_read_state for update using (true) with check (true);
+
+-- Realtime (live chat + friend collaboration)
 do $$
 begin
   if not exists (
@@ -127,5 +179,11 @@ begin
     where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'personal_friend_activity_log'
   ) then
     alter publication supabase_realtime add table public.personal_friend_activity_log;
+  end if;
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'personal_friend_messages'
+  ) then
+    alter publication supabase_realtime add table public.personal_friend_messages;
   end if;
 end $$;

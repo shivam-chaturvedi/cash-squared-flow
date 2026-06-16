@@ -113,6 +113,20 @@ export type PersonalFriendActivityRow = {
   created_at: string;
 };
 
+export type PersonalFriendMessageRow = {
+  id: string;
+  connection_id: string;
+  sender_user_id: string;
+  body: string;
+  created_at: string;
+};
+
+export type PersonalFriendChatReadStateRow = {
+  user_id: string;
+  connection_id: string;
+  last_read_at: string;
+};
+
 export type BusinessCustomerRow = {
   id: string;
   user_id: string;
@@ -484,6 +498,72 @@ export const db = {
           });
         }
         return ok(row);
+      } catch (e) {
+        return fail(e);
+      }
+    },
+    async listFriendMessages(connectionId: string, limit = 200): Promise<DbResult<PersonalFriendMessageRow[]>> {
+      try {
+        const { data, error } = await supabase
+          .from("personal_friend_messages")
+          .select("*")
+          .eq("connection_id", connectionId)
+          .order("created_at", { ascending: true })
+          .limit(limit);
+        if (error) return { data: null, error: error.message };
+        return ok((data ?? []) as PersonalFriendMessageRow[]);
+      } catch (e) {
+        return fail(e);
+      }
+    },
+    async sendFriendMessage(input: {
+      connection_id: string;
+      sender_user_id: string;
+      body: string;
+    }): Promise<DbResult<PersonalFriendMessageRow>> {
+      try {
+        const body = input.body.trim().slice(0, 2000);
+        if (!body) return { data: null, error: "Message cannot be empty." };
+        const { data, error } = await supabase
+          .from("personal_friend_messages")
+          .insert({
+            connection_id: input.connection_id,
+            sender_user_id: input.sender_user_id,
+            body,
+          })
+          .select("*")
+          .single();
+        if (error) return { data: null, error: error.message };
+        return ok(data as PersonalFriendMessageRow);
+      } catch (e) {
+        return fail(e);
+      }
+    },
+    async markFriendChatRead(userId: string, connectionId: string): Promise<DbResult<PersonalFriendChatReadStateRow>> {
+      try {
+        const now = new Date().toISOString();
+        const { data, error } = await supabase
+          .from("personal_friend_chat_read_state")
+          .upsert(
+            { user_id: userId, connection_id: connectionId, last_read_at: now },
+            { onConflict: "user_id,connection_id" },
+          )
+          .select("*")
+          .single();
+        if (error) return { data: null, error: error.message };
+        return ok(data as PersonalFriendChatReadStateRow);
+      } catch (e) {
+        return fail(e);
+      }
+    },
+    async listFriendChatReadStates(userId: string): Promise<DbResult<PersonalFriendChatReadStateRow[]>> {
+      try {
+        const { data, error } = await supabase
+          .from("personal_friend_chat_read_state")
+          .select("*")
+          .eq("user_id", userId);
+        if (error) return { data: null, error: error.message };
+        return ok((data ?? []) as PersonalFriendChatReadStateRow[]);
       } catch (e) {
         return fail(e);
       }
