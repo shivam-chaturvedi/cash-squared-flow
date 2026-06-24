@@ -1,4 +1,4 @@
-# Cash Squared Flow
+# Avail
 
 ## Signup OTP (Vercel)
 

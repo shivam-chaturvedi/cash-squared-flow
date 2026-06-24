@@ -12,7 +12,10 @@ import { toast } from "@/hooks/use-toast";
 import { db, type BusinessCustomerRow, type BusinessExpenseRow, type BusinessTransactionRow } from "@/lib/db";
 import { subscribeDataChanged } from "@/lib/events";
 import PageHeader from "@/components/PageHeader";
+import StatsDateFilter from "@/components/StatsDateFilter";
 import { useMoney } from "@/hooks/useMoney";
+import { useStatsFilter } from "@/hooks/useStatsFilter";
+import { buildDailyBuckets } from "@/lib/statsFilter";
 import CurrencyToggle from "@/components/CurrencyToggle";
 import SimpleGoogleTranslator from "@/components/SimpleGoogleTranslator";
 
@@ -20,6 +23,7 @@ const BusinessDashboard = () => {
   const { language, userName, session, profile, businessUserId } = useApp();
   const tr = t[language];
   const { formatMoney } = useMoney();
+  const { matchesDate, matchesDateTime, preset } = useStatsFilter();
   const userId = businessUserId ?? (session?.user?.id ?? null);
   const [showTransaction, setShowTransaction] = useState(false);
   const [showCustomer, setShowCustomer] = useState(false);
@@ -60,43 +64,47 @@ const BusinessDashboard = () => {
     });
   }, [userId]);
 
+  const filteredTransactions = useMemo(
+    () => transactions.filter((t) => matchesDateTime(t.occurred_at)),
+    [transactions, matchesDateTime],
+  );
+  const filteredExpenses = useMemo(
+    () => expenses.filter((e) => matchesDate(e.spent_on)),
+    [expenses, matchesDate],
+  );
+
   const totals = useMemo(() => {
     const totalGive = customers.filter((c) => c.balance < 0).reduce((s, c) => s + Math.abs(c.balance), 0);
     const totalGet = customers.filter((c) => c.balance >= 0).reduce((s, c) => s + c.balance, 0);
-    const totalIn = transactions.filter((t) => t.type === "in").reduce((s, t) => s + t.amount, 0);
-    const totalOut = transactions.filter((t) => t.type === "out").reduce((s, t) => s + t.amount, 0);
-    const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
+    const totalIn = filteredTransactions.filter((t) => t.type === "in").reduce((s, t) => s + t.amount, 0);
+    const totalOut = filteredTransactions.filter((t) => t.type === "out").reduce((s, t) => s + t.amount, 0);
+    const totalExpenses = filteredExpenses.reduce((s, e) => s + e.amount, 0);
     const totalBalance = totalIn - totalOut - totalExpenses;
 
     const today = new Date().toISOString().split("T")[0];
-    const todayIn = transactions
+    const todayIn = filteredTransactions
       .filter((t) => t.type === "in" && new Date(t.occurred_at).toISOString().split("T")[0] === today)
       .reduce((s, t) => s + t.amount, 0);
-    const todayOut = transactions
+    const todayOut = filteredTransactions
       .filter((t) => t.type === "out" && new Date(t.occurred_at).toISOString().split("T")[0] === today)
       .reduce((s, t) => s + t.amount, 0);
-    const todayExpenses = expenses.filter((e) => e.spent_on === today).reduce((s, e) => s + e.amount, 0);
+    const todayExpenses = filteredExpenses.filter((e) => e.spent_on === today).reduce((s, e) => s + e.amount, 0);
     const todayBalance = todayIn - todayOut - todayExpenses;
     return { totalGive, totalGet, totalBalance, todayBalance };
-  }, [customers, expenses, transactions]);
+  }, [customers, filteredExpenses, filteredTransactions]);
 
   const cashFlowData = useMemo(() => {
-    const days = [...Array(7)].map((_, idx) => {
-      const d = new Date();
-      d.setDate(d.getDate() - (6 - idx));
-      const iso = d.toISOString().split("T")[0];
-      const label = d.toLocaleDateString(undefined, { weekday: "short" });
-      const inSum = transactions
+    return buildDailyBuckets(preset).map(({ iso, label }) => {
+      const inSum = filteredTransactions
         .filter((t) => t.type === "in" && new Date(t.occurred_at).toISOString().split("T")[0] === iso)
         .reduce((s, t) => s + t.amount, 0);
-      const outSumTx = transactions
+      const outSumTx = filteredTransactions
         .filter((t) => t.type === "out" && new Date(t.occurred_at).toISOString().split("T")[0] === iso)
         .reduce((s, t) => s + t.amount, 0);
-      const outSumExp = expenses.filter((e) => e.spent_on === iso).reduce((s, e) => s + e.amount, 0);
+      const outSumExp = filteredExpenses.filter((e) => e.spent_on === iso).reduce((s, e) => s + e.amount, 0);
       return { day: label, in: inSum, out: outSumTx + outSumExp };
     });
-    return days;
-  }, [expenses, transactions]);
+  }, [filteredExpenses, filteredTransactions, preset]);
 
   const handleAddExpense = async (draft: ExpenseDraft) => {
     if (!userId) return;
@@ -133,6 +141,7 @@ const BusinessDashboard = () => {
         title={tr.dashboard}
         right={(
           <div className="flex flex-wrap items-center justify-end gap-2">
+            <StatsDateFilter compact />
             <CurrencyToggle compact />
             <SimpleGoogleTranslator />
           </div>
@@ -147,7 +156,7 @@ const BusinessDashboard = () => {
       </div>
 
       <div className="bg-card border border-border p-4">
-        <h3 className="text-sm font-semibold mb-4">Cash Flow (This Week)</h3>
+        <h3 className="text-sm font-semibold mb-4">Cash Flow</h3>
         <div className="h-48">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={cashFlowData}>

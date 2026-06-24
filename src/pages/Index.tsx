@@ -36,7 +36,7 @@ const LandingPage = ({ onLogin, onSignup }: LandingPageProps) => {
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3">
           <img
             src="/logo.png"
-            alt="Cash Squared Flow"
+            alt="Avail"
             className="h-10 w-auto rounded-lg border-2 border-[#F04507] bg-white/40 object-contain"
           />
           <div className="flex items-center gap-3">
@@ -75,9 +75,9 @@ const LandingPage = ({ onLogin, onSignup }: LandingPageProps) => {
           </h1>
 
           <p className="mx-auto mb-8 max-w-2xl text-lg text-muted-foreground">
-            Cash Squared Flow is the all-in-one cash management app for small
-            businesses and individuals — track customers, suppliers, employees,
-            expenses, budgets, and split bills with friends. All in one place.
+            Meet Avail — the ultimate, supercharged money management app built for everyone!
+            Whether you&apos;re running a side hustle, managing a full-scale business, or just
+            trying to handle your daily life, Avail has your back.
           </p>
 
           <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
@@ -171,8 +171,8 @@ const LandingPage = ({ onLogin, onSignup }: LandingPageProps) => {
           <SectionLabel>Business</SectionLabel>
           <h2 className="section-title">Every Tool Your Business Needs</h2>
           <p className="section-sub">
-            From your first customer to your hundredth transaction — Cash Squared
-            Flow keeps every number in order.
+            From your first customer to your hundredth transaction — Avail
+            keeps every number in order.
           </p>
 
           <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -414,7 +414,7 @@ const LandingPage = ({ onLogin, onSignup }: LandingPageProps) => {
       {/* ── Testimonial / social proof ── */}
       <section className="bg-gradient-to-br from-primary/5 via-background to-[hsl(145_63%_42%)]/5 py-20">
         <div className="mx-auto max-w-6xl px-5">
-          <SectionLabel>Why Cash Squared Flow</SectionLabel>
+          <SectionLabel>Why Avail</SectionLabel>
           <h2 className="section-title">Made for Real Business Owners</h2>
           <p className="section-sub">
             Whether you run a local shop, a freelance practice, or just want to
@@ -468,8 +468,8 @@ const LandingPage = ({ onLogin, onSignup }: LandingPageProps) => {
             Your Finances, Finally Under Control
           </h2>
           <p className="mb-8 text-lg text-primary-foreground/80">
-            Join thousands of business owners and individuals who use Cash Squared
-            Flow to manage their money smarter.
+            Join thousands of business owners and individuals who use Avail
+            to manage their money smarter.
           </p>
           <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
             <button
@@ -493,11 +493,11 @@ const LandingPage = ({ onLogin, onSignup }: LandingPageProps) => {
         <div className="mx-auto flex max-w-6xl flex-col items-center gap-3 px-5">
           <img
             src="/logo.png"
-            alt="Cash Squared Flow"
+            alt="Avail"
             className="h-8 w-auto rounded-lg border border-[#F04507] bg-white/40 object-contain"
           />
           <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} Cash Squared Flow. All rights reserved.
+            © {new Date().getFullYear()} Avail. All rights reserved.
           </p>
           <div className="flex gap-4 text-xs text-muted-foreground">
             <button onClick={onLogin} className="hover:text-foreground transition">

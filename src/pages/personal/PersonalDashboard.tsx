@@ -8,7 +8,9 @@ import { Plus } from "lucide-react";
 import { db, type PersonalExpenseRow } from "@/lib/db";
 import { subscribeDataChanged } from "@/lib/events";
 import PageHeader from "@/components/PageHeader";
+import StatsDateFilter from "@/components/StatsDateFilter";
 import { useMoney } from "@/hooks/useMoney";
+import { useStatsFilter } from "@/hooks/useStatsFilter";
 import CurrencyToggle from "@/components/CurrencyToggle";
 import SimpleGoogleTranslator from "@/components/SimpleGoogleTranslator";
 
@@ -25,6 +27,7 @@ const PersonalDashboard = () => {
   const { language, session } = useApp();
   const tr = t[language];
   const { formatMoney } = useMoney();
+  const { matchesDate } = useStatsFilter();
   const userId = session?.user?.id ?? null;
   const [expenses, setExpenses] = useState<PersonalExpenseRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -53,11 +56,14 @@ const PersonalDashboard = () => {
     });
   }, [userId]);
 
-  const monthPrefix = new Date().toISOString().slice(0, 7);
+  const filteredExpenses = useMemo(
+    () => expenses.filter((e) => matchesDate(e.spent_on)),
+    [expenses, matchesDate],
+  );
+
   const spendingData = useMemo(() => {
     const map = new Map<string, number>();
-    for (const e of expenses) {
-      if (!e.spent_on.startsWith(monthPrefix)) continue;
+    for (const e of filteredExpenses) {
       map.set(e.category, (map.get(e.category) ?? 0) + e.amount);
     }
     return Array.from(map.entries()).map(([name, value], idx) => ({
@@ -65,7 +71,7 @@ const PersonalDashboard = () => {
       value,
       color: palette[idx % palette.length],
     }));
-  }, [expenses, monthPrefix]);
+  }, [filteredExpenses]);
 
   const totalSpending = spendingData.reduce((s, d) => s + d.value, 0);
 
@@ -87,6 +93,7 @@ const PersonalDashboard = () => {
         title={tr.dashboard}
         right={(
           <div className="flex flex-wrap items-center justify-end gap-2">
+            <StatsDateFilter compact />
             <CurrencyToggle compact />
             <SimpleGoogleTranslator />
             <button

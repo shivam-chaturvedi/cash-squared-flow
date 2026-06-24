@@ -4,19 +4,23 @@ import { t } from "@/lib/translations";
 import { FileText } from "lucide-react";
 import TopAccent from "@/components/TopAccent";
 import { supabase } from "@/lib/supabaseClient";
+import { isTutorialCompletedForTypes } from "@/lib/tutorialPrefs";
 
 const TermsPage = () => {
-  const { language, translateLang, setAuthState, saveProfile, profile, session } = useApp();
+  const { language, translateLang, setAuthState, saveProfile, profile, session, beginOnboardingTutorial } = useApp();
   const tr = t[language];
   const [accepted, setAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (profile?.accepted_terms) {
-      setAuthState("authenticated");
-    }
-  }, [profile?.accepted_terms, setAuthState]);
+    if (!profile?.accepted_terms) return;
+    const types = profile.account_types ?? [];
+    if (types.length === 0) return;
+    if (types.includes("business") && !profile.business_name) return;
+    if (!isTutorialCompletedForTypes(profile.notification_prefs, types)) return;
+    setAuthState("authenticated");
+  }, [profile?.accepted_terms, profile?.account_types, profile?.business_name, profile?.notification_prefs, setAuthState]);
 
   const handleContinue = async () => {
     if (!accepted) return;
@@ -51,7 +55,12 @@ const TermsPage = () => {
           ? "select-type"
           : data.account_types.includes("business") && !data.business_name
             ? "business-setup"
-            : "authenticated";
+            : isTutorialCompletedForTypes(data.notification_prefs, data.account_types ?? [])
+              ? "authenticated"
+              : "tutorial";
+    if (next === "tutorial" && data) {
+      beginOnboardingTutorial(data.account_types ?? [], data.notification_prefs);
+    }
     setAuthState(next);
   };
 

@@ -29,6 +29,7 @@ import InsightsPage from "@/pages/personal/InsightsPage";
 import FriendsPage from "@/pages/personal/FriendsPage";
 import SettingsPage from "@/pages/SettingsPage";
 import NotFound from "@/pages/NotFound";
+import { isTutorialCompletedForTypes } from "@/lib/tutorialPrefs";
 
 const queryClient = new QueryClient();
 
@@ -58,7 +59,7 @@ const AuthedApp = ({ mode }: { mode: "business" | "personal" }) => (
 );
 
 const AppContent = () => {
-  const { authState, mode, booting, profile, session, setAuthState } = useApp();
+  const { authState, mode, booting, profile, session, setAuthState, beginOnboardingTutorial } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -67,15 +68,27 @@ const AppContent = () => {
     if (location.pathname === "/signup" && authState === "login") {
       setAuthState("signup");
     }
-    if (
-      authState === "signup" &&
-      location.pathname !== "/signup" &&
-      !location.pathname.startsWith("/invite/") &&
-      !location.pathname.startsWith("/friend-invite/")
-    ) {
-      navigate("/signup", { replace: true });
+  }, [location.pathname, authState, setAuthState]);
+
+  // Edge case: user refreshed mid-onboarding after accepting terms
+  useEffect(() => {
+    if (booting || !session || !profile?.accepted_terms || authState !== "signup-terms") return;
+    const types = profile.account_types ?? [];
+    if (types.length === 0) {
+      setAuthState("select-type");
+      return;
     }
-  }, [location.pathname, authState, setAuthState, navigate]);
+    if (types.includes("business") && !profile.business_name) {
+      setAuthState("business-setup");
+      return;
+    }
+    if (!isTutorialCompletedForTypes(profile.notification_prefs, types)) {
+      beginOnboardingTutorial(types, profile.notification_prefs);
+      setAuthState("tutorial");
+      return;
+    }
+    setAuthState("authenticated");
+  }, [booting, session, profile, authState, setAuthState, beginOnboardingTutorial]);
 
   if (booting) {
     return (
@@ -95,7 +108,11 @@ const AppContent = () => {
 
   // Edge case: user refreshed mid-onboarding but already accepted terms
   if (authState === "signup-terms" && session && profile?.accepted_terms) {
-    return <AuthedApp mode={mode} />;
+    return (
+      <div className="min-h-[100dvh] flex items-center justify-center bg-background text-muted-foreground">
+        Loading…
+      </div>
+    );
   }
 
   // Intermediate auth flow steps — shown full-screen regardless of URL

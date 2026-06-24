@@ -6,12 +6,15 @@ import EmptyState from "@/components/EmptyState";
 import { db, type PersonalExpenseRow } from "@/lib/db";
 import { subscribeDataChanged } from "@/lib/events";
 import PageHeader from "@/components/PageHeader";
+import StatsDateFilter from "@/components/StatsDateFilter";
 import { useMoney } from "@/hooks/useMoney";
+import { useStatsFilter } from "@/hooks/useStatsFilter";
 
 const InsightsPage = () => {
   const { language, session } = useApp();
   const tr = t[language];
   const { formatMoney } = useMoney();
+  const { matchesDate } = useStatsFilter();
   const userId = session?.user?.id ?? null;
   const [expenses, setExpenses] = useState<PersonalExpenseRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,36 +43,38 @@ const InsightsPage = () => {
     });
   }, [userId]);
 
+  const filteredExpenses = useMemo(
+    () => expenses.filter((e) => matchesDate(e.spent_on)),
+    [expenses, matchesDate],
+  );
+
   const monthlyData = useMemo(() => {
     const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
     const map = new Map<string, number>();
-    for (const e of expenses) {
+    for (const e of filteredExpenses) {
       const d = new Date(`${e.spent_on}T00:00:00`);
       const k = monthKey(d);
       map.set(k, (map.get(k) ?? 0) + e.amount);
     }
     const keys = Array.from(map.keys()).sort();
-    const last6 = keys.slice(-6);
-    return last6.map((k) => {
+    return keys.map((k) => {
       const [y, m] = k.split("-").map(Number);
-      const label = new Date(y, (m ?? 1) - 1, 1).toLocaleString(undefined, { month: "short" });
+      const label = new Date(y, (m ?? 1) - 1, 1).toLocaleString(undefined, { month: "short", year: "2-digit" });
       return { month: label, amount: map.get(k) ?? 0 };
     });
-  }, [expenses]);
+  }, [filteredExpenses]);
 
   const categoryData = useMemo(() => {
-    const monthPrefix = new Date().toISOString().slice(0, 7);
     const map = new Map<string, number>();
-    for (const e of expenses) {
-      if (!e.spent_on.startsWith(monthPrefix)) continue;
+    for (const e of filteredExpenses) {
       map.set(e.category, (map.get(e.category) ?? 0) + e.amount);
     }
     return Array.from(map.entries()).map(([name, amount]) => ({ name, amount }));
-  }, [expenses]);
+  }, [filteredExpenses]);
 
   return (
     <div className="p-4 md:p-6 space-y-6 animate-fade-in">
-      <PageHeader title={tr.insights} />
+      <PageHeader title={tr.insights} right={<StatsDateFilter compact />} />
 
       {/* Spending trend */}
       <div className="bg-card border border-border p-4">

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useApp } from "@/contexts/AppContext";
 import { supabase } from "@/lib/supabaseClient";
 import { t } from "@/lib/translations";
@@ -14,6 +15,7 @@ import { completeFriendInvite } from "@/lib/completeFriendInvite";
 
 const OtpPage = () => {
   const { language, setAuthState, userEmail, userName, saveProfile, setMode, setAccountTypes, accountTypes } = useApp();
+  const navigate = useNavigate();
   const tr = t[language];
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -110,8 +112,16 @@ const OtpPage = () => {
         userName || pendingFriendInvite.inviteeName,
       );
       if (!friendError) {
-        setAccountTypes(accountTypes.includes("personal") ? accountTypes : [...accountTypes, "personal"]);
+        const nextTypes = accountTypes.includes("personal") ? accountTypes : [...accountTypes, "personal"];
+        setAccountTypes(nextTypes);
         setMode("personal");
+        await saveProfile(
+          {
+            account_types: nextTypes,
+            is_business: nextTypes.includes("business"),
+          },
+          data.session.user.id,
+        );
       }
       clearPendingFriendInvite();
     }
@@ -193,6 +203,7 @@ const OtpPage = () => {
             clearPendingSignup();
             clearPendingSignupOtp();
             setAuthState("login");
+            navigate("/");
           }}
           disabled={loading}
           type="button"

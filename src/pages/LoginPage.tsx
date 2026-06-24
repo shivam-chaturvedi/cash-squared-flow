@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { t } from "@/lib/translations";
 import { requestSignupOtp } from "@/lib/signupOtp";
 import { setPendingSignupOtpEmail } from "@/lib/signupOtpPending";
-import { Mail, Lock, Eye, EyeOff, User, Calendar } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, User, Calendar, ArrowLeft } from "lucide-react";
 import TopAccent from "@/components/TopAccent";
 import { getPendingInvite } from "@/lib/pendingInvite";
 import { getPendingFriendInvite } from "@/lib/pendingFriendInvite";
@@ -130,23 +130,41 @@ const LoginPage = ({ initialIsSignup = false }: { initialIsSignup?: boolean }) =
     }
   };
 
+  const goToLanding = () => {
+    setIsSignup(false);
+    setSignupStep(1);
+    setStatusMessage(null);
+    setAuthState("login");
+    navigate("/");
+  };
+
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background">
       <TopAccent />
+      <div className="px-4 pt-3 max-w-md mx-auto w-full">
+        <button
+          type="button"
+          onClick={goToLanding}
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          {tr.otpBackHome}
+        </button>
+      </div>
       <div className="flex-1 flex items-center justify-center p-4">
       <div className="w-full max-w-md animate-fade-in">
-        {/* Logo & Brand — click to return to landing page */}
+        {/* Logo & Brand */}
         <div className="mb-6">
           <div className="text-center">
           <button
             type="button"
-            onClick={() => { setAuthState("login"); navigate("/"); }}
+            onClick={goToLanding}
             className="inline-block focus:outline-none"
             aria-label="Back to home"
           >
             <img
               src="/logo.png"
-              alt="Cash Squared Flow"
+              alt="Avail"
               className="w-80 h-auto mx-auto mb-2 object-contain border-2 border-[#F04507] rounded-xl bg-white/40 hover:opacity-80 transition-opacity cursor-pointer"
             />
           </button>

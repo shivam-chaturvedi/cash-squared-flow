@@ -6,12 +6,15 @@ import EmptyState from "@/components/EmptyState";
 import { db, type BusinessTransactionRow } from "@/lib/db";
 import { subscribeDataChanged } from "@/lib/events";
 import PageHeader from "@/components/PageHeader";
+import StatsDateFilter from "@/components/StatsDateFilter";
 import { useMoney } from "@/hooks/useMoney";
+import { useStatsFilter } from "@/hooks/useStatsFilter";
 
 const CashbookPage = () => {
   const { language, session, businessUserId } = useApp();
   const tr = t[language];
   const { formatMoney } = useMoney();
+  const { matchesDateTime } = useStatsFilter();
   const userId = businessUserId ?? (session?.user?.id ?? null);
   const [transactions, setTransactions] = useState<BusinessTransactionRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,16 +50,17 @@ const CashbookPage = () => {
       const occurred = new Date(tx.occurred_at);
       const date = occurred.toISOString().split("T")[0];
       const matchesSearch = tx.description.toLowerCase().includes(search.toLowerCase()) || date.includes(search);
-      return matchesType && matchesSearch;
+      const matchesPeriod = matchesDateTime(tx.occurred_at);
+      return matchesType && matchesSearch && matchesPeriod;
     });
-  }, [transactions, typeFilter, search]);
+  }, [transactions, typeFilter, search, matchesDateTime]);
 
   const totalIn = filteredTransactions.filter((tx) => tx.type === "in").reduce((s, tx) => s + tx.amount, 0);
   const totalOut = filteredTransactions.filter((tx) => tx.type === "out").reduce((s, tx) => s + tx.amount, 0);
 
   return (
     <div className="p-4 md:p-6 space-y-4 animate-fade-in">
-      <PageHeader title={tr.cashbook} />
+      <PageHeader title={tr.cashbook} right={<StatsDateFilter compact />} />
 
       {/* Summary */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">

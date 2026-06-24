@@ -10,6 +10,13 @@ import {
   subscribeEmployeeAccessChanged,
 } from "@/lib/employeeAccessSync";
 import { normalizeEmployeeRole } from "@/lib/employeeRoles";
+import type { StatsFilterPreset } from "@/lib/statsFilter";
+import {
+  incompleteTutorialSections,
+  isTutorialCompletedForTypes,
+} from "@/lib/tutorialPrefs";
+
+export type TutorialRunMode = "onboarding" | "replay";
 
 export type AppMode = "business" | "personal";
 export type Language = "en" | "hi" | "zh-CN" | "zh-HK";
@@ -73,6 +80,14 @@ interface AppContextType {
   employeeAccessPages: string[] | null;
   isEmployee: boolean;
   displayBusinessName: string | null;
+  statsFilterPreset: StatsFilterPreset;
+  setStatsFilterPreset: (preset: StatsFilterPreset) => void;
+  tutorialRunMode: TutorialRunMode | null;
+  tutorialSections: AppMode[] | null;
+  beginOnboardingTutorial: (types: AppMode[], prefs: Record<string, unknown> | null | undefined) => void;
+  startTutorialReplay: () => void;
+  startTutorialForNewType: (type: AppMode) => void;
+  endTutorialRun: () => void;
 }
 
 type StoredState = {
@@ -86,6 +101,7 @@ type StoredState = {
   userEmail: string;
   businessName: string;
   ownerName: string;
+  statsFilterPreset: StatsFilterPreset;
 };
 
 const STORAGE_KEY = "cash-squared-app-state";
@@ -143,6 +159,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [employeeAccessPages, setEmployeeAccessPages] = useState<string[] | null>(null);
   const [isEmployeeUser, setIsEmployeeUser] = useState(false);
   const [employerBusinessName, setEmployerBusinessName] = useState<string | null>(null);
+  const [statsFilterPreset, setStatsFilterPreset] = useState<StatsFilterPreset>(stored?.statsFilterPreset ?? "month");
+  const [tutorialRunMode, setTutorialRunMode] = useState<TutorialRunMode | null>(null);
+  const [tutorialSections, setTutorialSections] = useState<AppMode[] | null>(null);
 
   const buildProfileFromSession = useMemo(() => {
     return (sessionData: Session | null) => {
@@ -425,8 +444,41 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     if (isEmployeeUser || !!profileData.employee_of_user_id) return "authenticated";
     if (!Array.isArray(profileData.account_types) || profileData.account_types.length === 0) return "select-type";
     if (profileData.account_types.includes("business") && !profileData.business_name) return "business-setup";
+    const types = profileData.account_types;
+    if (!isTutorialCompletedForTypes(profileData.notification_prefs, types)) return "tutorial";
     return "authenticated";
   };
+
+  const beginOnboardingTutorial = useCallback(
+    (types: AppMode[], prefs: Record<string, unknown> | null | undefined) => {
+      const incomplete = incompleteTutorialSections(prefs, types);
+      setTutorialSections(incomplete.length > 0 ? incomplete : types);
+      setTutorialRunMode("onboarding");
+    },
+    [],
+  );
+
+  const startTutorialReplay = useCallback(() => {
+    if (accountTypes.length === 0) return;
+    setTutorialSections([...accountTypes]);
+    setTutorialRunMode("replay");
+    setAuthState("tutorial");
+  }, [accountTypes]);
+
+  const startTutorialForNewType = useCallback(
+    (type: AppMode) => {
+      setTutorialSections([type]);
+      setTutorialRunMode("onboarding");
+      setAuthState("tutorial");
+    },
+    [],
+  );
+
+  const endTutorialRun = useCallback(() => {
+    setTutorialRunMode(null);
+    setTutorialSections(null);
+    setAuthState("authenticated");
+  }, []);
 
   const clearAuthHashFromUrl = () => {
     if (typeof window === "undefined") return;
@@ -448,9 +500,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       userEmail,
       businessName,
       ownerName,
+      statsFilterPreset,
     };
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-  }, [mode, accountTypes, language, currency, translateLang, userName, userAge, userEmail, businessName, ownerName]);
+  }, [mode, accountTypes, language, currency, translateLang, userName, userAge, userEmail, businessName, ownerName, statsFilterPreset]);
 
   const authStateRef = useRef<AuthState>(authState);
   const loadProfileRef = useRef(loadProfile);
@@ -531,7 +584,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         const employeeContext = await resolveEmployeeContext(currentSession, profileData);
         lastLoadedUserIdRef.current = currentSession.user.id;
         // If signup OTP is pending, do not auto-navigate away.
-        setAuthState(getPendingSignupOtpEmail() ? "signup-otp" : getNextAuthState(profileData, employeeContext.isEmployee));
+        const nextState = getPendingSignupOtpEmail()
+          ? "signup-otp"
+          : getNextAuthState(profileData, employeeContext.isEmployee);
+        if (nextState === "tutorial" && profileData) {
+          beginOnboardingTutorial(profileData.account_types ?? [], profileData.notification_prefs);
+        }
+        setAuthState(nextState);
         clearAuthHashFromUrl();
         setBooting(false);
         return;
@@ -565,7 +624,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             void resolveEmployeeContext(currentSession, profileData).then((employeeContext) => {
               if (!mounted) return;
               lastLoadedUserIdRef.current = userId;
-              setAuthState(getNextAuthState(profileData, employeeContext.isEmployee));
+              const nextState = getNextAuthState(profileData, employeeContext.isEmployee);
+              if (nextState === "tutorial" && profileData) {
+                beginOnboardingTutorial(profileData.account_types ?? [], profileData.notification_prefs);
+              }
+              setAuthState(nextState);
               clearAuthHashFromUrl();
               setBooting(false);
             });
@@ -588,7 +651,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       mounted = false;
       data.subscription.unsubscribe();
     };
-  }, []);
+  }, [beginOnboardingTutorial]);
+
+  useEffect(() => {
+    if (authState !== "tutorial" || tutorialRunMode || (tutorialSections && tutorialSections.length > 0)) return;
+    if (accountTypes.length === 0) return;
+    beginOnboardingTutorial(accountTypes, profile?.notification_prefs);
+  }, [authState, tutorialRunMode, tutorialSections, accountTypes, profile?.notification_prefs, beginOnboardingTutorial]);
 
   return (
     <AppContext.Provider value={{
@@ -624,6 +693,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       employeeAccessPages,
       isEmployee: isEmployeeUser,
       displayBusinessName,
+      statsFilterPreset,
+      setStatsFilterPreset,
+      tutorialRunMode,
+      tutorialSections,
+      beginOnboardingTutorial,
+      startTutorialReplay,
+      startTutorialForNewType,
+      endTutorialRun,
     }}>
       {children}
     </AppContext.Provider>

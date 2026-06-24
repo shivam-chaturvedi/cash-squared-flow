@@ -6,8 +6,10 @@ import EmptyState from "@/components/EmptyState";
 import { db, type PersonalBudgetRow, type PersonalExpenseRow } from "@/lib/db";
 import { subscribeDataChanged } from "@/lib/events";
 import PageHeader from "@/components/PageHeader";
+import StatsDateFilter from "@/components/StatsDateFilter";
 import { Plus } from "lucide-react";
 import { useMoney } from "@/hooks/useMoney";
+import { useStatsFilter } from "@/hooks/useStatsFilter";
 
 type ModalMode = "add" | "edit";
 
@@ -15,6 +17,7 @@ const BudgetPage = () => {
   const { language, session } = useApp();
   const tr = t[language];
   const { formatMoney } = useMoney();
+  const { matchesDate } = useStatsFilter();
   const userId = session?.user?.id ?? null;
   const [budgets, setBudgets] = useState<PersonalBudgetRow[]>([]);
   const [expenses, setExpenses] = useState<PersonalExpenseRow[]>([]);
@@ -53,15 +56,18 @@ const BudgetPage = () => {
     });
   }, [userId]);
 
-  const monthPrefix = new Date().toISOString().slice(0, 7);
+  const filteredExpenses = useMemo(
+    () => expenses.filter((e) => matchesDate(e.spent_on)),
+    [expenses, matchesDate],
+  );
+
   const spentByCategory = useMemo(() => {
     const map = new Map<string, number>();
-    for (const e of expenses) {
-      if (!e.spent_on.startsWith(monthPrefix)) continue;
+    for (const e of filteredExpenses) {
       map.set(e.category, (map.get(e.category) ?? 0) + e.amount);
     }
     return map;
-  }, [expenses, monthPrefix]);
+  }, [filteredExpenses]);
 
   const viewBudgets = useMemo(() => {
     return budgets.map((b) => ({
@@ -116,12 +122,15 @@ const BudgetPage = () => {
       <PageHeader
         title={tr.budget}
         right={(
-          <button
-            onClick={openAddBudget}
-            className="bg-primary text-primary-foreground px-4 py-2 text-sm font-semibold flex items-center gap-2 hover:opacity-90 transition"
-          >
-            <Plus className="h-4 w-4" /> {tr.addBudgetCategory}
-          </button>
+          <div className="flex items-center gap-2">
+            <StatsDateFilter compact />
+            <button
+              onClick={openAddBudget}
+              className="bg-primary text-primary-foreground px-4 py-2 text-sm font-semibold flex items-center gap-2 hover:opacity-90 transition"
+            >
+              <Plus className="h-4 w-4" /> {tr.addBudgetCategory}
+            </button>
+          </div>
         )}
         below={(
           <div className="flex items-center gap-2 flex-wrap">

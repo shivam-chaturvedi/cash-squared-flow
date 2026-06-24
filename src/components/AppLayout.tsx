@@ -84,7 +84,7 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
           <div className="flex items-center gap-2">
             <img
               src="/logo.png"
-              alt="Cash Squared Flow"
+              alt="Avail"
               className="w-52 h-auto object-contain border-2 border-[#F04507] rounded-xl bg-white/40"
             />
           </div>
@@ -160,7 +160,7 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
           <div className="flex items-center gap-2 min-w-0">
             <img
               src="/logo.png"
-              alt="Cash Squared Flow"
+              alt="Avail"
               className="w-36 h-auto object-contain border-2 border-[#F04507] rounded-xl bg-white/40 shrink-0"
             />
             {mode === "business" && displayBusinessName && (

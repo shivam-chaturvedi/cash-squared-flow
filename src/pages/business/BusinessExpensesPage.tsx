@@ -9,12 +9,15 @@ import { toast } from "@/hooks/use-toast";
 import { db, type BusinessExpenseRow } from "@/lib/db";
 import { subscribeDataChanged } from "@/lib/events";
 import PageHeader from "@/components/PageHeader";
+import StatsDateFilter from "@/components/StatsDateFilter";
 import { useMoney } from "@/hooks/useMoney";
+import { useStatsFilter } from "@/hooks/useStatsFilter";
 
 const BusinessExpensesPage = () => {
   const { language, userName, session, profile, businessUserId } = useApp();
   const tr = t[language];
   const { formatMoney } = useMoney();
+  const { matchesDate } = useStatsFilter();
   const userId = businessUserId ?? (session?.user?.id ?? null);
   const [showAdd, setShowAdd] = useState(false);
   const [expenses, setExpenses] = useState<BusinessExpenseRow[]>([]);
@@ -43,13 +46,18 @@ const BusinessExpensesPage = () => {
     });
   }, [userId]);
 
+  const filteredExpenses = useMemo(
+    () => expenses.filter((e) => matchesDate(e.spent_on)),
+    [expenses, matchesDate],
+  );
+
   const categories = useMemo(() => {
     const map = new Map<string, number>();
-    for (const e of expenses) {
+    for (const e of filteredExpenses) {
       map.set(e.category, (map.get(e.category) ?? 0) + e.amount);
     }
     return Array.from(map.entries()).map(([name, amount]) => ({ name, amount }));
-  }, [expenses]);
+  }, [filteredExpenses]);
 
   const total = useMemo(() => categories.reduce((s, c) => s + c.amount, 0), [categories]);
 
@@ -87,9 +95,12 @@ const BusinessExpensesPage = () => {
       <PageHeader
         title={tr.expenses}
         right={(
-          <button onClick={() => setShowAdd(true)} className="bg-primary text-primary-foreground px-4 py-2 text-sm font-medium flex items-center gap-1 hover:opacity-90 transition">
-            <Plus className="h-4 w-4" /> {tr.addExpense}
-          </button>
+          <div className="flex items-center gap-2">
+            <StatsDateFilter compact />
+            <button onClick={() => setShowAdd(true)} className="bg-primary text-primary-foreground px-4 py-2 text-sm font-medium flex items-center gap-1 hover:opacity-90 transition">
+              <Plus className="h-4 w-4" /> {tr.addExpense}
+            </button>
+          </div>
         )}
       />
 

@@ -16,6 +16,7 @@ const BusinessSetupPage = () => {
     accountTypes,
     isEmployee,
     profile,
+    beginOnboardingTutorial,
   } = useApp();
   const tr = t[language];
   const [invites, setInvites] = useState<string[]>([]);
@@ -45,6 +46,7 @@ const BusinessSetupPage = () => {
       is_business: true,
     });
     setSaving(false);
+    beginOnboardingTutorial(accountTypes, profile?.notification_prefs);
     setAuthState("tutorial");
   };
 

@@ -10,12 +10,15 @@ import EmptyState from "@/components/EmptyState";
 import { db, type BusinessExpenseRow, type BusinessTransactionRow } from "@/lib/db";
 import { subscribeDataChanged } from "@/lib/events";
 import PageHeader from "@/components/PageHeader";
+import StatsDateFilter from "@/components/StatsDateFilter";
 import { useMoney } from "@/hooks/useMoney";
+import { useStatsFilter } from "@/hooks/useStatsFilter";
 
 const ReportsPage = () => {
   const { language, session, businessUserId } = useApp();
   const tr = t[language];
   const { formatMoney } = useMoney();
+  const { matchesDate, matchesDateTime } = useStatsFilter();
   const userId = businessUserId ?? (session?.user?.id ?? null);
   const [transactions, setTransactions] = useState<BusinessTransactionRow[]>([]);
   const [expenses, setExpenses] = useState<BusinessExpenseRow[]>([]);
@@ -51,29 +54,38 @@ const ReportsPage = () => {
     });
   }, [userId]);
 
+  const filteredTransactions = useMemo(
+    () => transactions.filter((t) => matchesDateTime(t.occurred_at)),
+    [transactions, matchesDateTime],
+  );
+  const filteredExpenses = useMemo(
+    () => expenses.filter((e) => matchesDate(e.spent_on)),
+    [expenses, matchesDate],
+  );
+
   const summaryStats = useMemo(() => {
-    const revenue = transactions.filter((t) => t.type === "in").reduce((s, t) => s + t.amount, 0);
-    const expenseTotal = expenses.reduce((s, e) => s + e.amount, 0);
+    const revenue = filteredTransactions.filter((t) => t.type === "in").reduce((s, t) => s + t.amount, 0);
+    const expenseTotal = filteredExpenses.reduce((s, e) => s + e.amount, 0);
     const netProfit = revenue - expenseTotal;
     return [
       { label: "Total Revenue", value: formatMoney(revenue), variant: "money-in" as const },
       { label: "Total Expenses", value: formatMoney(expenseTotal), variant: "money-out" as const },
       { label: "Net Profit", value: formatMoney(netProfit) as const, variant: undefined },
-      { label: "Transactions", value: `${transactions.length}` as const, variant: undefined },
+      { label: "Transactions", value: `${filteredTransactions.length}` as const, variant: undefined },
     ];
-  }, [expenses, formatMoney, transactions]);
+  }, [filteredExpenses, filteredTransactions, formatMoney]);
 
   const monthlySummary = useMemo(() => {
     const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
     const months = new Map<string, { year: number; monthIndex: number; in: number; out: number }>();
-    for (const tx of transactions) {
+    for (const tx of filteredTransactions) {
       const d = new Date(tx.occurred_at);
       const k = monthKey(d);
       const item = months.get(k) ?? { year: d.getFullYear(), monthIndex: d.getMonth(), in: 0, out: 0 };
       if (tx.type === "in") item.in += tx.amount;
       months.set(k, item);
     }
-    for (const e of expenses) {
+    for (const e of filteredExpenses) {
       const d = new Date(`${e.spent_on}T00:00:00`);
       const k = monthKey(d);
       const item = months.get(k) ?? { year: d.getFullYear(), monthIndex: d.getMonth(), in: 0, out: 0 };
@@ -81,15 +93,13 @@ const ReportsPage = () => {
       months.set(k, item);
     }
 
-    const sorted = Array.from(months.entries())
+    return Array.from(months.entries())
       .sort(([a], [b]) => (a < b ? 1 : -1))
-      .slice(0, 6)
       .map(([_, v]) => {
         const monthName = new Date(v.year, v.monthIndex, 1).toLocaleString(undefined, { month: "long" });
         return { month: monthName, year: v.year, in: v.in, out: v.out };
       });
-    return sorted;
-  }, [expenses, transactions]);
+  }, [filteredExpenses, filteredTransactions]);
 
   const handleDownloadExcel = () => {
     const wb = XLSX.utils.book_new();
@@ -100,7 +110,7 @@ const ReportsPage = () => {
       Expenses: row.out,
       Net: row.in - row.out,
     }));
-    const transactionRows = transactions.map((row) => ({
+    const transactionRows = filteredTransactions.map((row) => ({
       Date: new Date(row.occurred_at).toLocaleString(),
       Type: row.type,
       Amount: row.amount,
@@ -108,7 +118,7 @@ const ReportsPage = () => {
       CustomerId: row.customer_id ?? "",
       SupplierId: row.supplier_id ?? "",
     }));
-    const expenseRows = expenses.map((row) => ({
+    const expenseRows = filteredExpenses.map((row) => ({
       Date: row.spent_on,
       Category: row.category,
       Amount: row.amount,
@@ -158,7 +168,8 @@ const ReportsPage = () => {
       <PageHeader
         title={tr.reports}
         right={(
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <StatsDateFilter compact />
             <button onClick={handleDownloadPdf} className="border border-input px-3 py-1.5 text-xs font-medium flex items-center gap-1 hover:bg-accent transition">
               <Download className="h-3 w-3" /> {tr.exportPdf}
             </button>

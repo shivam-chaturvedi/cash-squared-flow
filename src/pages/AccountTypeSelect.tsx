@@ -5,7 +5,7 @@ import { User, Briefcase, Check } from "lucide-react";
 import TopAccent from "@/components/TopAccent";
 
 const AccountTypeSelect = () => {
-  const { language, isEmployee, profile, setMode, setAccountTypes, setAuthState, saveProfile } = useApp();
+  const { language, isEmployee, profile, setMode, setAccountTypes, setAuthState, saveProfile, beginOnboardingTutorial } = useApp();
   const tr = t[language];
   const [selected, setSelected] = useState<AppMode[]>([]);
   const [saving, setSaving] = useState(false);
@@ -23,25 +23,30 @@ const AccountTypeSelect = () => {
 
   const toggle = (type: AppMode) => {
     setSelected((prev) =>
-      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
+      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type],
     );
   };
 
-  const handleContinue = async () => {
-    if (selected.length === 0) return;
+  const finishOnboarding = async (types: AppMode[], mode: AppMode) => {
     setSaving(true);
-    setAccountTypes(selected);
-    setMode(selected[0]);
+    setAccountTypes(types);
+    setMode(mode);
     await saveProfile({
-      account_types: selected,
-      is_business: selected.includes("business"),
+      account_types: types,
+      is_business: types.includes("business"),
     });
     setSaving(false);
-    if (selected.includes("business")) {
+    if (types.includes("business") && !profile?.business_name) {
       setAuthState("business-setup");
     } else {
+      beginOnboardingTutorial(types, profile?.notification_prefs);
       setAuthState("tutorial");
     }
+  };
+
+  const handleContinue = () => {
+    if (selected.length === 0) return;
+    void finishOnboarding(selected, selected[0]);
   };
 
   return (
@@ -55,26 +60,7 @@ const AccountTypeSelect = () => {
 
         <div className="grid gap-3">
           <button
-            onClick={() => toggle("personal")}
-            className={`bg-card border p-5 text-left hover:border-primary hover:shadow-md transition group relative ${selected.includes("personal") ? "border-primary ring-2 ring-primary/20" : "border-border"}`}
-          >
-            {selected.includes("personal") && (
-              <div className="absolute top-3 right-3 w-6 h-6 bg-primary flex items-center justify-center">
-                <Check className="h-4 w-4 text-primary-foreground" />
-              </div>
-            )}
-            <div className="flex items-start gap-4">
-              <div className="w-11 h-11 bg-primary/10 flex items-center justify-center shrink-0">
-                <User className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-foreground text-base">{tr.individual}</h3>
-                <p className="text-sm text-muted-foreground mt-0.5">{tr.individualDesc}</p>
-              </div>
-            </div>
-          </button>
-
-          <button
+            type="button"
             onClick={() => toggle("business")}
             className={`bg-card border p-5 text-left hover:border-primary hover:shadow-md transition group relative ${selected.includes("business") ? "border-primary ring-2 ring-primary/20" : "border-border"}`}
           >
@@ -93,9 +79,31 @@ const AccountTypeSelect = () => {
               </div>
             </div>
           </button>
+
+          <button
+            type="button"
+            onClick={() => toggle("personal")}
+            className={`bg-card border p-5 text-left hover:border-primary hover:shadow-md transition group relative ${selected.includes("personal") ? "border-primary ring-2 ring-primary/20" : "border-border"}`}
+          >
+            {selected.includes("personal") && (
+              <div className="absolute top-3 right-3 w-6 h-6 bg-primary flex items-center justify-center">
+                <Check className="h-4 w-4 text-primary-foreground" />
+              </div>
+            )}
+            <div className="flex items-start gap-4">
+              <div className="w-11 h-11 bg-primary/10 flex items-center justify-center shrink-0">
+                <User className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-foreground text-base">{tr.personal}</h3>
+                <p className="text-sm text-muted-foreground mt-0.5">{tr.individualDesc}</p>
+              </div>
+            </div>
+          </button>
         </div>
 
         <button
+          type="button"
           onClick={handleContinue}
           disabled={selected.length === 0 || saving}
           className="w-full mt-4 bg-primary text-primary-foreground py-2.5 text-base font-semibold hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"

@@ -1,7 +1,8 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useApp, AppMode } from "@/contexts/AppContext";
 import { t } from "@/lib/translations";
-import { Globe, Bell, Shield, LogOut, User, Briefcase, Check, Plus, MessageSquareText } from "lucide-react";
+import { Globe, Bell, Shield, LogOut, User, Briefcase, Check, Plus, MessageSquareText, BookOpen } from "lucide-react";
+import { isSectionTutorialCompleted } from "@/lib/tutorialPrefs";
 import type { LucideIcon } from "lucide-react";
 import { subscribeNotifications } from "@/lib/notifications";
 import { db, type AppNotificationRow } from "@/lib/db";
@@ -35,6 +36,8 @@ const SettingsPage = () => {
     saveProfile,
     session,
     isEmployee,
+    startTutorialReplay,
+    startTutorialForNewType,
   } = useApp();
   const tr = t[language];
   const [activeSection, setActiveSection] = useState<SettingsSection>("language");
@@ -97,6 +100,10 @@ const SettingsPage = () => {
     if (error) {
       setAccountError(error.message ?? "Unable to update account types right now.");
       setAccountTypes(accountTypes);
+      return;
+    }
+    if (!hasType && !isSectionTutorialCompleted(profile?.notification_prefs, type)) {
+      startTutorialForNewType(type);
     }
   };
 
@@ -437,6 +444,18 @@ const SettingsPage = () => {
         {accountSaving && (
           <p className="text-xs text-muted-foreground mt-1">Saving account type preferences…</p>
         )}
+
+        {accountTypes.length > 0 && (
+          <button
+            type="button"
+            onClick={() => startTutorialReplay()}
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-primary/40 bg-primary/5 px-4 py-3 text-sm font-semibold text-primary hover:bg-primary/10 transition"
+          >
+            <BookOpen className="h-4 w-4" />
+            {tr.rewatchTutorial}
+          </button>
+        )}
+        <p className="text-xs text-muted-foreground mt-2">{tr.tutorialRewatchHint}</p>
       </section>
       )}
     </div>
