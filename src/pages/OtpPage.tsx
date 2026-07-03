@@ -138,7 +138,8 @@ const OtpPage = () => {
           <ShieldCheck className="h-7 w-7 text-primary" />
         </div>
         <h1 className="text-xl font-bold mb-1">{tr.otp}</h1>
-        <p className="text-muted-foreground text-sm mb-6">{tr.otpSent}<br /><span className="font-medium text-foreground">{userEmail}</span></p>
+        <p className="text-muted-foreground text-sm mb-2">{tr.otpSent}<br /><span className="font-medium text-foreground">{userEmail}</span></p>
+        <p className="text-xs text-muted-foreground mb-6">{tr.otpSpamNote}</p>
 
         <form onSubmit={handleVerify} className="space-y-4">
           <div className="flex justify-center gap-2">

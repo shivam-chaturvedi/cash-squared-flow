@@ -19,3 +19,31 @@ Optional:
 - Frontend only: `npm run dev` (OTP will 404 unless you point `VITE_API_BASE_URL` to a deployed domain that has `/api/request-signup-otp`).
 - Full stack locally: run with `vercel dev` so `/api/*` functions work.
 
+## Mailer SMTP configuration
+
+The `mailer/` service supports either Gmail or any standard SMTP mailbox.
+
+### Gmail
+
+- `GMAIL_USER`
+- `GMAIL_APP_PASSWORD`
+
+### Generic SMTP / Hostinger
+
+- `SMTP_HOST`
+- `SMTP_PORT`
+- `SMTP_SECURE`
+- `SMTP_USER`
+- `SMTP_PASS`
+- `MAIL_FROM` (optional, defaults to `SMTP_USER`)
+
+Example Hostinger mailbox configuration:
+
+- `SMTP_HOST=smtp.hostinger.com`
+- `SMTP_PORT=465`
+- `SMTP_SECURE=true`
+- `SMTP_USER=your-full-mailbox@example.com`
+- `SMTP_PASS=your-mailbox-password`
+- `MAIL_FROM=your-full-mailbox@example.com`
+
+Important: if `SMTP_HOST` is set, the mailer uses SMTP settings and does not try Gmail.

@@ -4,6 +4,49 @@ import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
 
+function parseBoolean(value, fallback) {
+  if (value == null || value === "") return fallback;
+  return String(value).toLowerCase() === "true";
+}
+
+function buildTransportConfig() {
+  const host = process.env.SMTP_HOST?.trim();
+  const port = Number(process.env.SMTP_PORT || 0);
+  const user = process.env.SMTP_USER?.trim() || process.env.GMAIL_USER?.trim();
+  const pass = process.env.SMTP_PASS?.trim() || process.env.GMAIL_APP_PASSWORD?.trim();
+  const from = process.env.MAIL_FROM?.trim() || user;
+
+  if (!user || !pass) {
+    throw new Error("Missing SMTP credentials. Set SMTP_USER/SMTP_PASS or GMAIL_USER/GMAIL_APP_PASSWORD.");
+  }
+
+  if (host) {
+    return {
+      from,
+      transport: {
+        host,
+        port: port || 465,
+        secure: parseBoolean(process.env.SMTP_SECURE, (port || 465) === 465),
+        auth: {
+          user,
+          pass,
+        },
+      },
+    };
+  }
+
+  return {
+    from,
+    transport: {
+      service: "gmail",
+      auth: {
+        user,
+        pass,
+      },
+    },
+  };
+}
+
 export default async function handler(req, res) {
 
   res.setHeader("Access-Control-Allow-Origin", "*"); // allow all origins
@@ -48,16 +91,11 @@ export default async function handler(req, res) {
         .json({ error: "to, subject, and text/html are required" });
     }
 
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.GMAIL_USER,
-        pass: process.env.GMAIL_APP_PASSWORD,
-      },
-    });
+    const { from, transport } = buildTransportConfig();
+    const transporter = nodemailer.createTransport(transport);
 
     await transporter.sendMail({
-      from: process.env.GMAIL_USER,
+      from,
       to,
       subject,
       text,
